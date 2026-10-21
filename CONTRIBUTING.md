@@ -85,6 +85,8 @@ running terminals: see [development](docs/development.md#checks).
 - **HTTP or WebSocket contract:** change both sides through `shared/protocol.ts` and cover it with a
   contract test (`server/api.contract.test.ts` for endpoints). A test that needs a live herdr is named
   `*.contract.test.ts`.
+- **Stored formats:** a change to the structure of a stored browser record or state-directory
+  file follows the [stored-format rules](docs/development.md#stored-format-changes).
 - **herdr wire types:** never edit `shared/herdr-api.generated.ts`; run `bun run generate:types`.
 - **Theme colors:** edit them only in the theme blocks of `src/styles.css`. Never edit
   `src/lib/themes.generated.ts` or the generated copies in DESIGN.md, `index.html` and
