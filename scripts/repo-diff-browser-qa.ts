@@ -332,7 +332,7 @@ try {
   for (const [width, theme] of [[1440, "dark"], [1440, "light"], [390, "dark"], [390, "light"]] as const) {
     const label = `${width}px ${theme}`;
     const phone = width === 390;
-    const context = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, isMobile: phone, hasTouch: phone, colorScheme: theme });
+    const context = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: phone ? 3 : 1, isMobile: phone, hasTouch: phone, colorScheme: theme });
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await context.addInitScript((theme) => {
       // once: a reload keeps what the page saved since (the diff layout)
