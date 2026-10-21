@@ -689,10 +689,10 @@ try {
     await page.keyboard.press("Escape");
     await page.locator(".repo-diff-viewer").waitFor({ state: "detached" });
     await page.getByRole("dialog", { name: "Files", exact: true }).waitFor();
-    await closeFiles(page);
     console.log(`PASS ${label}: Find reaches folded context at the top, middle and end of 10 000 lines, steps across both sides${phone ? "" : " through split and wrap"}, takes punctuation literally and closes before the viewer`);
 
-    // a comparison changed under live results drops them; a patch on its way, an offline PC and a watch-only device have none to search
+    // a comparison changed under live results drops them; a patch on its way, an offline PC and a watch-only device have none to search.
+    // The Files list stays open beneath, as when a row opens a diff: closing a phone's sheet goes Back in history, which would race the next open
     const target = { machineId: "local", paneId: "pane-main", directory: repos.main, scope: "commit" as const, base: "HEAD~1", head: "HEAD", path: "src/money.ts", oldPath: null };
     await page.evaluate((target) => window.repoDiffQA.openDiff(target), target);
     await waitRows(page);
@@ -739,6 +739,7 @@ try {
       assert.equal(await findButton.isDisabled(), true, `${label}: Find is off for ${path}`);
       await closeDiff(page);
     }
+    await closeFiles(page);
     assert.deepEqual(errors, [], `${label}: no errors after Find`);
     console.log(`PASS ${label}: a changed comparison drops live results; loading, refused, offline, watch-only, binary and too-large patches leave Find off and say why`);
     await context.close();
