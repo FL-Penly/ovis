@@ -116,8 +116,10 @@ const landing = async (page: Page, label: (name: string) => string): Promise<{ p
   const section = active?.dataset.section ?? null;
   let visible: boolean | null = null;
   if (section !== null && active) {
+    // the group's head and its first control, which may arrive after it opens (the OpenAI key's form)
     const body = active.closest(".settings-body")?.getBoundingClientRect(), box = active.getBoundingClientRect();
-    visible = body !== undefined && box.top >= body.top - 1 && box.top < body.bottom;
+    const control = active.querySelector("input, select, button, textarea")?.getBoundingClientRect();
+    visible = body !== undefined && box.top >= body.top - 1 && box.top < body.bottom && control !== undefined && control.bottom <= body.bottom + 1;
   }
   return { page: id, section, visible };
   });
@@ -172,6 +174,13 @@ async function settingsSearch(browser: import("playwright-core").Browser, url: s
             await page.locator(".settings-dialog").waitFor();
             await page.waitForFunction(() => document.querySelector(".settings-dialog [role='tabpanel']:not([hidden])") !== null);
             if (expectedSection !== "-") await page.waitForFunction((section) => (document.activeElement as HTMLElement | null)?.dataset.section === section, expectedSection, { timeout: 3000 }).catch(() => undefined);
+            // a group's control drawn after the server answers is in view once it is there
+            if (expectedSection !== "-") await page.waitForFunction(() => {
+              const active = document.activeElement as HTMLElement | null;
+              const body = active?.closest(".settings-body")?.getBoundingClientRect();
+              const control = active?.querySelector("input, select, button, textarea")?.getBoundingClientRect();
+              return body !== undefined && control !== undefined && control.bottom <= body.bottom + 1;
+            }, undefined, { timeout: 3000 }).catch(() => undefined);
             shown = await landing(page, label);
             overflow = await sideways(page);
             await close();

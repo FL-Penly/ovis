@@ -1076,6 +1076,7 @@ function OpenSettingsDialog({ section = null, linkPage = null, linkSection = nul
   useLayoutEffect(() => {
     const before = shown.current;
     shown.current = { page, keyBar: keyBarOpen };
+    let landed: (() => void) | undefined;
     if (keyBarOpen) backRef.current?.focus();
     else if (before?.keyBar && before.page === page) {
       if (settingsBodyRef.current) settingsBodyRef.current.scrollTop = settingsScrollRef.current;
@@ -1085,13 +1086,28 @@ function OpenSettingsDialog({ section = null, linkPage = null, linkSection = nul
       // to a group, and a group the palette named
       const named = section === "updates" ? "updates" : asked?.section ?? (linked && linkSection ? linkSection : null);
       const pointed = named ? settingsBodyRef.current?.querySelector<HTMLElement>(`[data-section="${CSS.escape(named)}"]`) : null;
-      if (pointed) { pointed.focus({ preventScroll: true }); pointed.scrollIntoView(); }
-      else tab(page)?.focus();
+      if (pointed) {
+        pointed.focus({ preventScroll: true });
+        pointed.scrollIntoView();
+        // a group filled in after it opens (the OpenAI key's form waits for the server's answer)
+        // grows past the fold: it is brought back into view until the reader moves the page
+        const body = settingsBodyRef.current;
+        const follow = new ResizeObserver(() => pointed.scrollIntoView());
+        const moves = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+        const stop = (): void => {
+          follow.disconnect();
+          for (const move of moves) body?.removeEventListener(move, stop);
+        };
+        follow.observe(pointed);
+        for (const move of moves) body?.addEventListener(move, stop, { passive: true });
+        landed = stop;
+      } else tab(page)?.focus();
     } else if (before.page !== page && narrow) {
       // a phone shows one of the two: the focus follows into the page, and back onto its row
       if (page !== null) backRef.current?.focus();
       else tab(before.page)?.focus();
     }
+    return landed;
   }, [page, keyBarOpen, narrow, section]);
   // server-side: the web server updates PC bridges, so it keeps this choice
   const [pcSettings, setPcSettings] = useState<MachineSettings | null>(null);
