@@ -1061,6 +1061,8 @@ function OpenSettingsDialog({ section = null, linkPage = null, linkSection = nul
   const surface = useFocusTrap<HTMLElement>(true, { initialFocus: backRef });
   useSheetSwipe(surface, onClose);
   const shown = useRef<{ page: SettingsPage | null; keyBar: boolean } | null>(null);
+  // the group a landing named, followed into view until the reader moves the page
+  const following = useRef<{ group: HTMLElement; page: SettingsPage | null } | null>(null);
   const label = (id: SettingsPage): string => t(id === "appearance" ? "Appearance" : id === "chat" ? "Chat" : id === "terminal" ? "Terminal" : id === "alerts" ? "Alerts" : id === "voice" ? "Voice input"
     : id === "usage" ? "Subscription usage" : id === "shortcuts" ? "Shortcuts" : id === "devices" ? "Phone & devices" : id === "remote" ? "Remote PCs" : id === "integrations" ? "Agent integrations" : "About");
   const openPage = (id: SettingsPage): void => { setKeyBarOpen(false); setChosen(id); };
@@ -1076,7 +1078,6 @@ function OpenSettingsDialog({ section = null, linkPage = null, linkSection = nul
   useLayoutEffect(() => {
     const before = shown.current;
     shown.current = { page, keyBar: keyBarOpen };
-    let landed: (() => void) | undefined;
     if (keyBarOpen) backRef.current?.focus();
     else if (before?.keyBar && before.page === page) {
       if (settingsBodyRef.current) settingsBodyRef.current.scrollTop = settingsScrollRef.current;
@@ -1089,25 +1090,30 @@ function OpenSettingsDialog({ section = null, linkPage = null, linkSection = nul
       if (pointed) {
         pointed.focus({ preventScroll: true });
         pointed.scrollIntoView();
-        // a group filled in after it opens (the OpenAI key's form waits for the server's answer)
-        // grows past the fold: it is brought back into view until the reader moves the page
-        const body = settingsBodyRef.current;
-        const follow = new ResizeObserver(() => pointed.scrollIntoView());
-        const moves = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
-        const stop = (): void => {
-          follow.disconnect();
-          for (const move of moves) body?.removeEventListener(move, stop);
-        };
-        follow.observe(pointed);
-        for (const move of moves) body?.addEventListener(move, stop, { passive: true });
-        landed = stop;
+        following.current = { group: pointed, page };
       } else tab(page)?.focus();
     } else if (before.page !== page && narrow) {
       // a phone shows one of the two: the focus follows into the page, and back onto its row
       if (page !== null) backRef.current?.focus();
       else tab(before.page)?.focus();
     }
-    return landed;
+    // a group filled in after it opens (the OpenAI key's form waits for the server's answer) grows
+    // past the fold: it is brought back into view until the reader moves the page or leaves it.
+    // The subscription is made again whenever this runs, so development's replay of the effect
+    // keeps following; the reader's move or another page ends it for good
+    const follow = following.current;
+    if (follow === null || follow.page !== page || keyBarOpen) { following.current = null; return; }
+    const body = settingsBodyRef.current;
+    const observer = new ResizeObserver(() => follow.group.scrollIntoView());
+    const moves = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    const unsubscribe = (): void => {
+      observer.disconnect();
+      for (const move of moves) body?.removeEventListener(move, stop);
+    };
+    const stop = (): void => { following.current = null; unsubscribe(); };
+    observer.observe(follow.group);
+    for (const move of moves) body?.addEventListener(move, stop, { passive: true });
+    return unsubscribe;
   }, [page, keyBarOpen, narrow, section]);
   // server-side: the web server updates PC bridges, so it keeps this choice
   const [pcSettings, setPcSettings] = useState<MachineSettings | null>(null);

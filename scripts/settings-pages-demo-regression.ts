@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type Page } from "playwright-core";
 import panes from "../site/demo/fixtures/panes.json";
-import { buildDemoApp } from "./demo-build.ts";
+import { buildDemoApp, buildDevelopmentDemoApp } from "./demo-build.ts";
 import { DEMO_FILE_PREVIEW_SCRIPT } from "./demo-file-preview.ts";
 import { openSettingsPage } from "./settings-page.ts";
 import { KO } from "../src/lib/i18n.ko.ts";
@@ -19,6 +19,7 @@ import { comboKey, LEGACY_COMBOS } from "./theme-baseline.ts";
 // the browser's Back button steps out of the dialog instead of out of the app. All files and
 // HTTP traffic stay in this disposable, loopback-only app; no herdr session is opened.
 const app = mkdtempSync(join(tmpdir(), "herdr-settings-demo-"));
+const devApp = mkdtempSync(join(tmpdir(), "herdr-settings-dev-"));
 const PAGES = ["Appearance", "Chat", "Terminal", "Alerts", "Voice input", "Subscription usage", "Shortcuts", "Phone & devices", "Remote PCs", "Agent integrations", "About"];
 const SETTINGS = { language: "en", showUsage: true, voiceInput: true, showQuickReplies: true, fileOpen: "panel" };
 
@@ -229,23 +230,109 @@ async function settingsSearch(browser: import("playwright-core").Browser, url: s
   console.log(`PASS ${MATRIX.length} settings searches at 1440 and 390px land on their page and group; no stale request in en, ko, ja, zh`);
 }
 
+/**
+ * Loaded after the demo's transport in the development app: the voice status the Voice input page
+ * asks for is held until the page releases it, and the observers made on the OpenAI key's group are
+ * counted, live and made.
+ */
+const HOLD_VOICE = `(() => {
+  const fetch = window.fetch, held = [];
+  let holding = true, asked = 0, made = 0;
+  window.voiceAsked = () => asked;
+  window.releaseVoice = () => { holding = false; for (const go of held.splice(0)) go(); };
+  window.fetch = (input, init) => {
+    const path = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, location.href).pathname;
+    if (!holding || path !== "/api/voice") return fetch(input, init);
+    asked += 1;
+    return new Promise((resolve) => held.push(() => resolve(fetch(input, init))));
+  };
+  const Native = window.ResizeObserver, live = new Set();
+  window.groupObservers = () => ({ made, live: live.size });
+  window.ResizeObserver = class extends Native {
+    observe(node, options) { if (node.dataset && node.dataset.section === "openai-key") { made += 1; live.add(this); } return super.observe(node, options); }
+    disconnect() { live.delete(this); return super.disconnect(); }
+  };
+})();
+`;
+interface HeldVoice { voiceAsked: () => number; releaseVoice: () => void; groupObservers: () => { made: number; live: number } }
+
+/**
+ * The OpenAI key's group, whose form waits for the server's answer, on React's development build:
+ * StrictMode runs the landing's effect, its cleanup and the effect again, and the group is still
+ * followed into view when the held answer comes. A reader who scrolled before it came stays where
+ * they scrolled.
+ */
+async function heldGroupLanding(browser: import("playwright-core").Browser, url: string): Promise<void> {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true, locale: "en" });
+  try {
+    await context.addInitScript((settings) => localStorage.setItem("ovis:settings", settings), JSON.stringify(SETTINGS));
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const body = page.locator(".settings-body:not([hidden])");
+    const observers = () => page.evaluate(() => (window as unknown as HeldVoice).groupObservers());
+    const land = async (): Promise<void> => {
+      await page.goto(url);
+      await page.locator(".conn-live").waitFor({ state: "attached" });
+      const asked = await page.evaluate(() => (window as unknown as HeldVoice).voiceAsked());
+      await openPalette(page, "OpenAI API key");
+      await page.locator(".palette-section[data-section='settings-pages'] [role='option']").first().click();
+      await page.waitForFunction((asked) => (document.activeElement as HTMLElement | null)?.dataset.section === "openai-key" && (window as unknown as HeldVoice).voiceAsked() > asked, asked);
+      assert.equal(await page.locator(".voice-key").count(), 0, "the key's form waits for the held answer");
+    };
+    await land();
+    const replayed = await observers();
+    assert.equal(replayed.live, 1, `one observer still follows the group after StrictMode's cleanup of the landing (${JSON.stringify(replayed)})`);
+    assert.ok(replayed.made >= 2, `the follow was set up again after the replay's cleanup (${replayed.made} observers made)`);
+    await page.evaluate(() => (window as unknown as HeldVoice).releaseVoice());
+    await page.locator(".voice-key input").waitFor();
+    await page.waitForFunction(() => {
+      const body = document.querySelector(".settings-body:not([hidden])")?.getBoundingClientRect();
+      const control = document.querySelector("[data-section='openai-key'] input")?.getBoundingClientRect();
+      return body !== undefined && control !== undefined && control.top >= body.top - 1 && control.bottom <= body.bottom + 1;
+    });
+
+    await land();
+    assert.ok(await body.evaluate((node) => node.scrollTop) > 0, "the landing scrolled to the group");
+    // the reader goes back to the page's top with the hardware keyboard before the answer comes
+    await page.keyboard.press("Home");
+    await page.waitForFunction(() => document.querySelector(".settings-body:not([hidden])")?.scrollTop === 0);
+    await page.evaluate(() => (window as unknown as HeldVoice).releaseVoice());
+    await page.locator(".voice-key input").waitFor();
+    // the frames after the form arrives, when an observer still following would have scrolled to it
+    await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+    assert.equal(await body.evaluate((node) => node.scrollTop), 0, "a reader who scrolled away is not pulled back");
+    assert.equal((await observers()).live, 0, "the reader's scroll ended the follow");
+    assert.deepEqual(errors, []);
+    console.log("PASS under development StrictMode the OpenAI key's group is followed into view when its held form arrives, and a reader's scroll ends it");
+  } finally {
+    await context.close();
+  }
+}
+
 try {
   await buildDemoApp(app);
-  const index = join(app, "index.html");
-  writeFileSync(index, readFileSync(index, "utf8").replace(/<script type="module"/, () => `<script src="./demo-transport.js"></script>${DEMO_FILE_PREVIEW_SCRIPT}\n    <script type="module"`));
+  await buildDevelopmentDemoApp(devApp);
+  writeFileSync(join(devApp, "hold-voice.js"), HOLD_VOICE);
+  for (const [dir, extra] of [[app, ""], [devApp, `<script src="./hold-voice.js"></script>`]] as const) {
+    const index = join(dir, "index.html");
+    writeFileSync(index, readFileSync(index, "utf8").replace(/<script type="module"/, () => `<script src="./demo-transport.js"></script>${extra}${DEMO_FILE_PREVIEW_SCRIPT}\n    <script type="module"`));
+  }
+  const roots = { "/herdr-web-ui/demo/app/": app, "/herdr-web-ui/demo/dev/": devApp };
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch(request) {
     const path = new URL(request.url).pathname;
-    const prefix = "/herdr-web-ui/demo/app/";
-    if (!path.startsWith(prefix)) return new Response("not found", { status: 404 });
+    const [prefix, root] = Object.entries(roots).find(([prefix]) => path.startsWith(prefix)) ?? [];
+    if (prefix === undefined || root === undefined) return new Response("not found", { status: 404 });
     let file: string;
     try { file = decodeURIComponent(path.slice(prefix.length)); }
     catch { return new Response("bad path", { status: 400 }); }
     if (!file || file.endsWith("/")) file += "index.html";
     if (file.split("/").includes("..") || file.includes("\\")) return new Response("bad path", { status: 400 });
-    const body = Bun.file(join(app, file));
+    const body = Bun.file(join(root, file));
     return await body.exists() ? new Response(body) : new Response("not found", { status: 404 });
   } });
   const url = `http://127.0.0.1:${server.port}/herdr-web-ui/demo/app/`;
+  const devUrl = `http://127.0.0.1:${server.port}/herdr-web-ui/demo/dev/`;
   try {
     const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? chromium.executablePath(), headless: true, args: ["--no-sandbox"] });
     try {
@@ -735,6 +822,7 @@ try {
       }
 
       await settingsSearch(browser, url);
+      await heldGroupLanding(browser, devUrl);
     } finally {
       await browser.close();
       console.log("CLEANUP browser closed");
@@ -745,5 +833,6 @@ try {
   }
 } finally {
   rmSync(app, { recursive: true, force: true });
-  console.log("CLEANUP disposable demo app removed");
+  rmSync(devApp, { recursive: true, force: true });
+  console.log("CLEANUP disposable demo apps removed");
 }
