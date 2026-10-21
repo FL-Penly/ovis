@@ -1512,6 +1512,26 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   within the source bounds (256 KB, 5 000 lines), else the rows stay plain and the header says
   `Too long to highlight`. Between hunks nothing expands: the routes serve the patch alone, not
   the files around it; **Open file** is the way to the whole file.
+- **Find in diff** (a `Search` icon button first among the actions, `aria-pressed`, and Ctrl/Cmd+F
+  while the viewer has the keyboard) opens the terminal find bar's markup and tokens
+  (`.find-bar.repo-diff-find`) between the header and the rows: the query, the count (`2 of 4`,
+  `No matches`) with the active match's kind and line in words (`Removed line 4`), Previous, Next
+  and Close (44px on touch), and the hint `Searches this loaded patch, including context. Content
+  outside the patch is not searched.` It searches the loaded patch as logical lines
+  (lib/repoDiffFind.ts: added, removed and unchanged lines, an unchanged line once on its new
+  side), literally and case-sensitively, never the mounted rows, so a match folded away or
+  outside the window of rows is found; a match on a folded line turns Fold context off, and the
+  row is brought to the middle by the same measured reveal as a virtualized source. The active
+  row gets an inset `--accent` ring (only its side's column in split) and its text is painted in
+  reverse through a CSS highlight, so it is not told by the tint alone. Enter / Shift+Enter step
+  and wrap; Escape closes Find first and returns the focus to what opened it, the viewer on the
+  next press. A new file, comparison or patch drops the query and its anchor; without a patch
+  (on its way, binary, too large, a conflict, a refusal, an offline PC, a watch-only device)
+  Find is off and says there is no loaded patch to search. Nothing is fetched to widen the
+  search: the routes serve the patch alone. Precedent: a browser's or an editor's find bar
+  (Zed, VS Code), scoped to the one virtualized diff; that the Codex or Claude apps search their
+  diff panels this way is unverified, so this is local discoverability for the app's own
+  windowed rows rather than a copy of theirs.
 - What has no rows says so in a `.repo-diff-note`: a binary file, a change past the server's
   patch cap (with the cap in bytes), a merge conflict, a path that is not a regular file, a pure
   rename or mode change (`No lines changed.`), a file that no longer differs, and every refusal of

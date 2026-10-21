@@ -230,6 +230,17 @@
   resize: none;
 }
 
+/* Find in this diff: the terminal find bar's markup and tokens, between the header and the rows */
+.repo-diff-find .find-bar-count {
+  display: inline-flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
+}
+
+.repo-diff-find-place {
+  color: var(--text);
+}
+
 /* on a narrow screen the name and Close keep the first row; the actions take the second */
 @media (max-width: 600px) {
   .repo-diff-header {
