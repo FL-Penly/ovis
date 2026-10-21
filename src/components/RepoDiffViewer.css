@@ -300,4 +300,9 @@
     width: max(44px, var(--touch-target));
     height: max(44px, var(--touch-target));
   }
+
+  /* the find query is a touch target as tall as the buttons beside it */
+  .repo-diff-find .input {
+    min-height: max(44px, var(--touch-target));
+  }
 }
