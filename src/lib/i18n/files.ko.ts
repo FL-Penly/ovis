@@ -81,7 +81,7 @@ export const FILES_KO: Record<string, string> = {
   "Showing one line around each change": "각 변경 주위로 한 줄씩만 표시합니다",
   "Find in diff": "변경 내용에서 찾기",
   "There is no loaded patch to search.": "검색할 불러온 패치가 없습니다.",
-  "Searches this loaded patch, including context. Content outside the patch is not searched.": "불러온 이 패치를 문맥까지 포함해 검색합니다. 패치 밖의 내용은 검색하지 않습니다.",
+  "Searches this loaded patch, including context. Content outside the patch is not searched.": "불러온 이 패치를 문맥까지 포함해\u00a0검색합니다. 패치 밖의 내용은 검색하지\u00a0않습니다.",
   "Added line {line}": "추가된 줄 {line}",
   "Removed line {line}": "삭제된 줄 {line}",
   "Unchanged line {line}": "변경 없는 줄 {line}",

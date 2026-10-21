@@ -19,7 +19,7 @@ import { chromePath } from "./chrome-path.ts";
 
 const evidence = process.env.UI_EVIDENCE_DIR;
 if (evidence) mkdirSync(evidence, { recursive: true });
-const HINT = { en: "Searches this loaded patch, including context. Content outside the patch is not searched.", ko: "불러온 이 패치를 문맥까지 포함해 검색합니다. 패치 밖의 내용은 검색하지 않습니다." } as const;
+const HINT = { en: "Searches this loaded patch, including context. Content outside the patch is not searched.", ko: "불러온 이 패치를 문맥까지 포함해\u00a0검색합니다. 패치 밖의 내용은 검색하지\u00a0않습니다." } as const;
 type Language = keyof typeof HINT;
 
 /** The bar as a user reads it: the count, the active match's place, the hint, the ringed row and the painted text. */

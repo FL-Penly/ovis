@@ -55,7 +55,7 @@ const MONEY_NEW = MONEY_OLD
   .replace("  return (cents / 100).toFixed(2);", "  return `$${(cents / 100).toFixed(2)}`;");
 
 /** Two real repositories and a plain folder, as the panes of the fixture would sit in them. */
-function fixtures(): { main: string; detached: string; plain: string } {
+function fixtures(): { main: string; detached: string; plain: string; long: string } {
   const main = join(root, "repo");
   mkdirSync(join(main, "src"), { recursive: true });
   mkdirSync(join(main, "docs"));
@@ -109,11 +109,20 @@ function fixtures(): { main: string; detached: string; plain: string } {
 
   const plain = join(root, "plain");
   mkdirSync(plain);
-  return { main, detached, plain };
+
+  // one line longer than any screen, its match 600 characters in, beside a short one
+  const long = join(root, "long");
+  mkdirSync(join(long, "src"), { recursive: true });
+  git(long, "init", "-q", "-b", "main");
+  writeFileSync(join(long, "src/long.ts"), `export const short = 1;\nexport const wide = "${"x".repeat(600)} old";\n`);
+  git(long, "add", ".");
+  git(long, "commit", "-q", "-m", "long");
+  writeFileSync(join(long, "src/long.ts"), `export const short = 1;\nexport const wide = "${"x".repeat(600)} needle";\n`);
+  return { main, detached, plain, long };
 }
 
 const repos = fixtures();
-const panes = new Map([["pane-main", repos.main], ["pane-conflict", repos.detached], ["pane-plain", repos.plain]]);
+const panes = new Map([["pane-main", repos.main], ["pane-conflict", repos.detached], ["pane-plain", repos.plain], ["pane-long", repos.long]]);
 const requests: string[] = [];
 /** a patch request for `pane-held` waits on this until the check lets it through */
 let held = Promise.withResolvers<void>();
@@ -624,6 +633,11 @@ try {
     const query = page.getByRole("searchbox", { name: "Find in diff", exact: true });
     await query.waitFor();
     assert.equal(await query.evaluate((input) => input === document.activeElement), true, `${label}: the query takes the focus`);
+    if (!phone) {
+      // a second Ctrl/Cmd+F on the open bar keeps the focus in the query, and Fold context keeps the return (checked at Escape)
+      await page.keyboard.press("ControlOrMeta+f");
+      assert.equal(await query.evaluate((input) => input === document.activeElement), true, `${label}: Ctrl/Cmd+F again keeps the query focused`);
+    }
     assert.equal(await page.getByRole("dialog", { name: "Files", exact: true }).count(), 1, `${label}: the Files list stays beneath`);
     const hint = (await found(page)).hint;
     assert.equal(hint, "Searches this loaded patch, including context. Content outside the patch is not searched.", `${label}: the bar says what it searches`);
@@ -680,16 +694,83 @@ try {
       const none = await found(page);
       assert.deepEqual([none.marked, none.painted], [[], []], `${label}: "${absent}" finds nothing and marks nothing: ${JSON.stringify(none)}`);
     }
+    await query.fill("line 9996");
+    await query.press("Enter");
+    await foundAt(page, "2 of 2", "Added line 9,996", `${label} before close`);
     // Escape closes Find, then the diff; the focus goes back to what opened Find
     await page.keyboard.press("Escape");
     await query.waitFor({ state: "detached" });
     await page.locator(".repo-diff-viewer").waitFor();
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null), phone ? "Find in diff" : "Fold context", `${label}: the focus returns to the control that opened Find`);
     assert.equal((await found(page)).marked.length, 0, `${label}: no row stays marked`);
+    // reopened untouched, Find shows the same query, count and active match again
+    if (phone) await findButton.tap();
+    else await findButton.click();
+    await query.waitFor();
+    assert.equal(await query.inputValue(), "line 9996", `${label}: the query is kept`);
+    await foundAt(page, "2 of 2", "Added line 9,996", `${label} reopened`);
+    await page.keyboard.press("Escape");
+    await query.waitFor({ state: "detached" });
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? null), "Find in diff", `${label}: the focus returns to Find, which reopened it`);
     await page.keyboard.press("Escape");
     await page.locator(".repo-diff-viewer").waitFor({ state: "detached" });
     await page.getByRole("dialog", { name: "Files", exact: true }).waitFor();
-    console.log(`PASS ${label}: Find reaches folded context at the top, middle and end of 10 000 lines, steps across both sides${phone ? "" : " through split and wrap"}, takes punctuation literally and closes before the viewer`);
+    console.log(`PASS ${label}: Find reaches folded context at the top, middle and end of 10 000 lines, steps across both sides${phone ? "" : " through split and wrap"}, takes punctuation literally, closes before the viewer${phone ? "" : " with a repeated Ctrl/Cmd+F"} and reopens on the same match`);
+
+    // unwrapped rows: a match past the screen's right edge is scrolled into view across, and back for one at the start
+    await page.evaluate(() => window.repoDiffQA.settings({ wrapCode: false }));
+    await page.evaluate((directory) => window.repoDiffQA.openDiff({ machineId: "local", paneId: "pane-long", directory, scope: "workspace", base: null, head: null, path: "src/long.ts", oldPath: null }), repos.long);
+    await waitRows(page);
+    if (phone) await findButton.tap();
+    else await page.keyboard.press("ControlOrMeta+f");
+    await query.waitFor();
+    const across = (): Promise<{ text: string; left: number; right: number; from: number; to: number; scrolled: number }> => page.evaluate(() => {
+      const range = [...(CSS.highlights.get("repo-diff-find") ?? [])][0] as Range | undefined;
+      const row = document.querySelector(".repo-diff diffs-container")?.shadowRoot?.querySelector<HTMLElement>("[data-line][data-find-active]");
+      const scroller = row?.closest<HTMLElement>("[data-code]");
+      if (!range || !scroller) return { text: "", left: 0, right: 0, from: 0, to: 0, scrolled: -1 };
+      const rect = range.getBoundingClientRect();
+      const box = scroller.getBoundingClientRect();
+      const gutter = scroller.querySelector("[data-gutter]")?.getBoundingClientRect().right ?? box.left;
+      return { text: range.toString(), left: rect.left, right: rect.right, from: Math.max(box.left, gutter), to: box.left + scroller.clientWidth, scrolled: scroller.scrollLeft };
+    });
+    const inViewAcross = async (step: string): Promise<{ scrolled: number }> => {
+      try {
+        await page.waitForFunction(() => {
+          const range = [...(CSS.highlights.get("repo-diff-find") ?? [])][0] as Range | undefined;
+          const scroller = document.querySelector(".repo-diff diffs-container")?.shadowRoot?.querySelector<HTMLElement>("[data-line][data-find-active]")?.closest<HTMLElement>("[data-code]");
+          if (!range || !scroller) return false;
+          const rect = range.getBoundingClientRect();
+          const box = scroller.getBoundingClientRect();
+          const gutter = scroller.querySelector("[data-gutter]")?.getBoundingClientRect().right ?? box.left;
+          return rect.left >= Math.max(box.left, gutter) && rect.right <= box.left + scroller.clientWidth;
+        });
+      } catch (error) {
+        throw new Error(`${label} ${step}: the match never came into view across: ${JSON.stringify(await across())}`, { cause: error });
+      }
+      return across();
+    };
+    await query.fill("needle");
+    await foundAt(page, "1 of 1", "Added line 2", `${label} long line`);
+    const far = await inViewAcross("needle");
+    assert.ok(far.scrolled > 0, `${label}: the rows scrolled across to the match: ${JSON.stringify(far)}`);
+    await findShot(page, width, theme, "long-line");
+    await query.fill("export const wide");
+    await foundAt(page, "1 of 2", "Removed line 2", `${label} line start`);
+    const near = await inViewAcross("line start");
+    assert.ok(near.scrolled < far.scrolled, `${label}: the rows scrolled back for a match at the start: ${JSON.stringify(near)}`);
+    if (!phone) {
+      await page.getByRole("button", { name: "Split", exact: true }).click();
+      await query.fill("needle");
+      await foundAt(page, "1 of 1", "Added line 2", `${label} long line split`);
+      await inViewAcross("needle in split");
+      await page.getByRole("button", { name: "Unified", exact: true }).click();
+    }
+    await page.keyboard.press("Escape");
+    await query.waitFor({ state: "detached" });
+    await closeDiff(page);
+    assert.deepEqual(errors, [], `${label}: no errors after the long line`);
+    console.log(`PASS ${label}: a match past the right edge of an unwrapped row is scrolled into view across${phone ? "" : ", in split too"}, and back for one at the start`);
 
     // a comparison changed under live results drops them; a patch on its way, an offline PC and a watch-only device have none to search.
     // The Files list stays open beneath, as when a row opens a diff: closing a phone's sheet goes Back in history, which would race the next open

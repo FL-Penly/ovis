@@ -71,6 +71,23 @@ function textRange(row: HTMLElement, start: number, end: number): Range | null {
   return null;
 }
 
+/**
+ * Brings a match's columns into view in its row's horizontal scroller (unwrapped rows; in split, its
+ * side's column), centred beside the sticky line numbers; a match already in view stays put.
+ */
+function revealColumns(row: HTMLElement, mark: DiffMark): void {
+  const scroller = row.closest<HTMLElement>("[data-code]");
+  if (scroller === null || scroller.scrollWidth <= scroller.clientWidth + 1) return;
+  const range = textRange(row, mark.start, mark.end);
+  if (range === null) return;
+  const match = range.getBoundingClientRect();
+  const box = scroller.getBoundingClientRect();
+  const left = Math.max(box.left, scroller.querySelector("[data-gutter]")?.getBoundingClientRect().right ?? box.left);
+  const right = box.left + scroller.clientWidth;
+  if (match.left >= left && match.right <= right) return;
+  scroller.scrollLeft += (match.left + match.right) / 2 - (left + right) / 2;
+}
+
 /** The fewest context lines the package's trimmer keeps correct (at 0 it miscounts the lines it drops). */
 export const FOLDED_CONTEXT_LINES = 1;
 
@@ -179,10 +196,12 @@ export default function RepoDiff({ patch, style, folded, wrap, theme, colored, a
     const root = virtualizerRef.current?.getRoot();
     const shadow = containerRef.current?.shadowRoot ?? null;
     if (pending === null || file === null || !(root instanceof HTMLElement) || shadow === null) return;
+    const row = markRow(shadow, pending.mark);
+    // across first: a mounted row's text may lie past the scroller's right edge, also in a diff too short to scroll down
+    if (row !== null) revealColumns(row, pending.mark);
     // the file's height arrives with its first rows: until then there is nothing to scroll, and the next render settles
     if (root.scrollHeight <= root.clientHeight + 1) return;
     const view = root.getBoundingClientRect();
-    const row = markRow(shadow, pending.mark);
     let target: number;
     if (row !== null) {
       const rect = row.getBoundingClientRect();

@@ -132,7 +132,8 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
 
   const openFind = useCallback((): void => {
     const focused = document.activeElement;
-    findOpener.current = focused instanceof HTMLElement && focused !== findInput.current ? focused : findButton.current;
+    // Ctrl/Cmd+F again on an open bar only refocuses the query: the control that first opened it keeps the return
+    if (!findingRef.current || findOpener.current?.isConnected !== true) findOpener.current = focused instanceof HTMLElement && focused !== findInput.current ? focused : findButton.current;
     setFinding(true);
     setFindRequest((request) => request + 1);
   }, []);
@@ -141,9 +142,9 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     findInput.current?.focus();
     findInput.current?.select();
   }, [findRequest]);
+  // the query and its active match stay for a reopen, which shows them again; a new patch drops both (above)
   const closeFind = useCallback((): void => {
     setFinding(false);
-    setActiveIndex(null);
     const opener = findOpener.current;
     findOpener.current = null;
     (opener?.isConnected === true ? opener : findButton.current)?.focus();
@@ -258,8 +259,8 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
           <div className="find-bar-controls">
             <label className="find-bar-query">
               <Search size={16} aria-hidden="true" />
-              <span className="visually-hidden">{t("Find in diff")}</span>
-              <input ref={findInput} className="input" type="search" value={query} maxLength={DIFF_FIND_MAX_QUERY} placeholder={t("Find in diff")} disabled={patch === null} spellCheck={false}
+              <span className="repo-diff-find-label">{t("Find in diff")}</span>
+              <input ref={findInput} className="input" type="search" value={query} maxLength={DIFF_FIND_MAX_QUERY} disabled={patch === null} spellCheck={false}
                 onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }}
                 onKeyDown={(event) => {
                   if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
