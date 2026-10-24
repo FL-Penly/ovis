@@ -182,9 +182,10 @@ class HerdrBridgeViewController: CAPBridgeViewController {
     /// The cover once the PC has not answered in time: why, what to check, Try again and Change PC.
     private func showNoAnswer(_ origin: String) {
         let host = URL(string: origin)?.host ?? origin
-        var text = Self.korean
+        // a load that already failed keeps its reason
+        var text = PCStore.failure.map { "\(host): \($0)" } ?? (Self.korean
             ? "\(host)이(가) \(Self.answerSeconds)초 안에 응답하지 않았습니다."
-            : "\(host) did not answer within \(Self.answerSeconds) seconds."
+            : "\(host) did not answer within \(Self.answerSeconds) seconds.")
         if Self.tailnet(host) {
             text += Self.korean
                 ? "\n\nTailscale 주소입니다. 이 휴대폰에서 Tailscale이 꺼져 있을 수 있습니다. Tailscale 앱에서 연결을 켠 뒤 다시 시도를 누르세요."
@@ -217,7 +218,7 @@ class HerdrBridgeViewController: CAPBridgeViewController {
 
     private func showFailure(in webView: WKWebView, reason: String) {
         guard let local = bridge?.config.localURL else { return }
-        answerTimeout?.cancel()
+        // the timeout stays armed: if WebKit does not get the error page up either, the cover says it
         PCStore.failure = reason
         webView.load(URLRequest(url: local.appendingPathComponent("error.html")))
     }
@@ -270,7 +271,8 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     /// not a PC worth keeping, and its page would leave the app no way back: the error page shows
     /// instead. Capacitor's delegate does not decide responses; WebKit allows all of them.
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-        if navigationResponse.isForMainFrame { onAnswer?() }
+        // the PC's own answer, not the bundled error page's
+        if navigationResponse.isForMainFrame, ["http", "https"].contains(navigationResponse.response.url?.scheme?.lowercased() ?? "") { onAnswer?() }
         guard navigationResponse.isForMainFrame, let response = navigationResponse.response as? HTTPURLResponse,
               response.statusCode >= 400 else {
             decisionHandler(.allow)
