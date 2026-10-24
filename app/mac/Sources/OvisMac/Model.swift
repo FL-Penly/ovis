@@ -84,11 +84,11 @@ final class Model: ObservableObject {
         phase = .working(L("Restarting…", "다시 시작하는 중…"))
         if await herdrRunning() {
             // the actions' output is in the log already: a failure only names which one stopped
-            guard await run(Paths.herdr, ["plugin", "action", "invoke", "\(pluginID).stop"], onLine: appendLine).status == 0 else {
+            guard await run(Paths.herdr, ["plugin", "action", "invoke", "\(pluginID).stop"], timeout: 30, onLine: appendLine).status == 0 else {
                 fail(L("Could not stop the Ovis server.", "Ovis 서버를 멈추지 못했습니다."))
                 return
             }
-            guard await run(Paths.herdr, ["plugin", "action", "invoke", "\(pluginID).start"], onLine: appendLine).status == 0 else {
+            guard await run(Paths.herdr, ["plugin", "action", "invoke", "\(pluginID).start"], timeout: 30, onLine: appendLine).status == 0 else {
                 fail(L("Could not start the Ovis server.", "Ovis 서버를 시작하지 못했습니다."))
                 return
             }
