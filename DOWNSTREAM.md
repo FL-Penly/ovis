@@ -16,6 +16,11 @@ modes and steps the agent there with its own Shift+Tab (a mode the session turns
 the list); Shift+Tab in the message box steps once. Either way the key goes only while its input box
 is on screen. The model and effort label is a button: it sends `/model`, whose picker Ovis shows as a card.
 
+**A Codex chat beside its fork.** A fork holds every answer of the conversation it was cut from, so a Codex
+pane's chat could not tell its own conversation from the fork's (and showed the terminal), most of all once
+the original was backtracked to the fork point. A rollout another pane was started on with
+`codex resume <thread>` is now left out when the screen matches several, so each pane shows its own.
+
 | File | What it holds |
 | --- | --- |
 | `integrations/quick-fork/` | quick-fork, vendored from herdr-web: cuts the transcript or rollout and starts the copy. Still a herdr plugin of its own (`herdr plugin link "$PWD/integrations/quick-fork"`). |
@@ -24,9 +29,10 @@ is on screen. The model and effort label is a button: it sends `/model`, whose p
 | `src/lib/agentMode.ts` (+ test, `fixtures-agent-mode/`) | Reads the mode from the visible screen; ported from herdr-web with its screen fixtures. |
 | `src/components/ModeChip.tsx` (+ css) | The chip. It reads the screen and sends the key through upstream's `pane/read` and `pane/keys` routes, so remote PCs get it too. |
 | `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
+| `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (2 lines), `src/components/ChatView.tsx` (a few one-line hunks),
+`server/pane-routes.ts` (2 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). `git diff upstream/main...main` shows the whole patch.

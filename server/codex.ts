@@ -1323,7 +1323,7 @@ async function claimedByOtherPanes(paneId: string, cwd: string, threads: string[
       const screen = await paneRead({ paneId: pane.pane_id, source: "recent", lines: 400, stripAnsi: true });
       const possible = [...new Map([...candidates, ...known, ...(theirsNow && !threads.includes(theirsNow) && !own.includes(theirsNow) ? tail(theirsNow) : [])]
         .map((candidate) => [candidate.path, candidate])).values()];
-      const shown = matchCodexTranscript(screen.text, possible);
+      const shown = matchCodexTranscript(screen.text, possible) ?? await matchBesideForks(pane.pane_id, cwd, screen.text, possible, new Set(), sessionPanes); // downstream
       if (shown === null || !threads.includes(shown)) continue;
       // and the thread's first message shows there too: typed in that pane, not only its answer
       // quoted or pasted there (a thread whose first message is gone from that screen stays unclaimed)
@@ -1743,7 +1743,8 @@ export async function codexTranscriptPath(paneId: string, cwd: string, home = de
   const candidates = paths.flatMap((path) => {
     try { return [{ path, text: codexHistoryTail(path, 1024 * 1024, home) }]; } catch { return []; }
   });
-  const matched = screen ? matchCodexTranscript(screen.text, candidates, new Set(titledElsewhere === null ? [] : [titledElsewhere])) : null;
+  const scrutinized = new Set(titledElsewhere === null ? [] : [titledElsewhere]);
+  const matched = screen ? matchCodexTranscript(screen.text, candidates, scrutinized) ?? await matchBesideForks(paneId, cwd, screen.text, candidates, scrutinized, panes) : null; // downstream
   if (matched !== null) {
     boundRollouts.delete(paneId);
     boundRollouts.set(paneId, { processes, path: matched, at: Date.now(), ...(matched === titledElsewhere ? { titled: true } : {}) });
@@ -1794,4 +1795,31 @@ export async function codexTranscriptPath(paneId: string, cwd: string, home = de
   // folder, the same short exchange there would be left out of the choice
   if (titledElsewhere !== null) return null;
   return shortThreadFromProcess(paneId, cwd, home, screen.text, codexProcesses, panes);
+}
+
+/**
+ * Downstream (FL-Penly/ovis, DOWNSTREAM.md): a fork holds every answer of the conversation it was cut
+ * from (quick-fork copies the rollout; Codex's own /fork continues it), so a screen showing one shows
+ * the answers of both and matchCodexTranscript cannot choose. A fork runs in the pane started as
+ * `codex resume <its thread>`, so for every other pane in the folder it is that pane's: the match is
+ * tried again without it. Nothing else is left out, so a screen two other threads explain stays unsure.
+ */
+async function matchBesideForks(paneId: string, cwd: string, screen: string, candidates: { path: string; text: string }[], scrutinized: ReadonlySet<string>, panes?: HerdrPane[]): Promise<string | null> {
+  if (candidates.length < 2) return null;
+  const elsewhere = new Set<string>();
+  for (const pane of codexPeersIn(panes ?? (await sessionSnapshot()).panes, paneId, cwd).slice(0, 8)) {
+    try {
+      const thread = resumedThread((await codexProcessesOf(pane.pane_id)).list.map((process) => process.argv ?? []));
+      if (thread !== null) elsewhere.add(thread.toLowerCase());
+    } catch { /* a pane closed meanwhile */ }
+  }
+  if (elsewhere.size === 0) return null;
+  // the pane's own `codex resume` keeps its thread, even when another pane resumed it too
+  const own = resumedThread((await codexProcessesOf(paneId).catch(() => ({ list: [] }))).list.map((process) => process.argv ?? []));
+  const threadOf = (path: string): string => { try { return string(rolloutHeader(path)?.id).toLowerCase(); } catch { return ""; } };
+  const kept = candidates.filter((candidate) => {
+    const thread = threadOf(candidate.path);
+    return thread === own?.toLowerCase() || !elsewhere.has(thread);
+  });
+  return kept.length === candidates.length || kept.length === 0 ? null : matchCodexTranscript(screen, kept, scrutinized);
 }
