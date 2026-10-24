@@ -128,6 +128,7 @@ describe("demo transport", () => {
    * (server to server, or behind a state the demo never reaches).
    */
   const DEMO_404: Record<string, string> = {
+    "/api/pane/fork": "downstream (DOWNSTREAM.md): forking starts a real agent, which the demo has none of",
     "/api/auth": "the demo is never locked (/api/health says authenticated), so neither the token form nor sign-out runs",
     "/api/bridge": "a remote PC's bridge endpoint, asked by another server, never by the browser",
     "/api/event": "OpenCode v2's own service's event stream, read by this server (opencode-service.ts), never by the browser",

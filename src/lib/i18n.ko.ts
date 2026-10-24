@@ -10,6 +10,7 @@ import { DEVICES_KO } from "./i18n/devices.ko.ts";
 import { USAGE_KO } from "./i18n/usage.ko.ts";
 import { UPDATES_KO } from "./i18n/updates.ko.ts";
 import { PALETTE_KO } from "./i18n/palette.ko.ts";
+import { FORK_KO } from "./i18n/fork.ko.ts"; // downstream
 
 /**
  * Korean for every `t("…")` in src/ that no part in lib/i18n/ holds: keys more than one feature
@@ -275,6 +276,7 @@ export const KO_PARTS: Record<string, Record<string, string>> = {
   usage: USAGE_KO,
   updates: UPDATES_KO,
   palette: PALETTE_KO,
+  fork: FORK_KO, // downstream
 };
 
 export const KO: Record<string, string> = Object.assign({}, ...Object.values(KO_PARTS));
