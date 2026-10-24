@@ -7,13 +7,16 @@ import { fileURLToPath } from "node:url";
 
 type Step = { name?: string; id?: string; if?: string; shell?: string; run?: string; env?: Record<string, string> };
 const root = fileURLToPath(new URL("../", import.meta.url));
-const source = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
-const workflow = Bun.YAML.parse(source) as {
+type Workflow = {
   on: Record<string, { types?: string[] } | null>;
   permissions: Record<string, string>;
+  concurrency: { group: string; "cancel-in-progress": boolean };
   jobs: Record<string, { "runs-on": string; permissions?: Record<string, string>; steps: Step[] }>;
 };
-const steps = workflow.jobs.changes!.steps;
+const source = readFileSync(join(root, ".github/workflows/pr-title.yml"), "utf8");
+const workflow = Bun.YAML.parse(source) as Workflow;
+const ci = Bun.YAML.parse(readFileSync(join(root, ".github/workflows/ci.yml"), "utf8")) as Workflow;
+const steps = workflow.jobs.title!.steps;
 const step = steps.find((candidate) => candidate.name === "Check the pull request title")!;
 
 /** Runs the workflow step's own script, as `shell: node {0}` does, against one event payload. */
@@ -38,22 +41,28 @@ function check(eventName: string, payload?: unknown, raw?: string) {
 const titled = (action: string, title: unknown) => check("pull_request", { action, pull_request: { title } });
 
 describe.skipIf(process.platform === "win32")("PR title check", () => {
-  it("runs first in the hosted changes job, for pull requests only, reading the title as data", () => {
-    expect(workflow.jobs.changes!["runs-on"]).toBe("ubuntu-24.04");
-    expect(steps.indexOf(step)).toBe(0);
-    expect(step.if).toBe("github.event_name == 'pull_request'");
+  it("runs alone in a hosted job that checks out nothing, reading the title as data", () => {
+    expect(Object.keys(workflow.jobs)).toEqual(["title"]);
+    expect(workflow.jobs.title!["runs-on"]).toBe("ubuntu-24.04");
+    expect(steps).toEqual([step]);
     expect(step.shell).toBe("node {0}");
     expect(step.env).toBeUndefined();
     expect(step.run).not.toContain("${{");
     expect(source).not.toContain("pull_request.title");
   });
 
-  it("is rechecked on every pull request event, with read-only permissions and no pull_request_target", () => {
-    expect(workflow.on.pull_request!.types).toEqual(["opened", "edited", "synchronize", "reopened", "ready_for_review"]);
-    expect(Object.keys(workflow.on)).not.toContain("pull_request_target");
+  it("is rechecked on an edit, with no token permissions and no pull_request_target", () => {
+    expect(Object.keys(workflow.on)).toEqual(["pull_request"]);
+    expect(workflow.on.pull_request!.types).toEqual(["opened", "edited", "synchronize", "reopened"]);
     expect(source).not.toContain("pull_request_target");
-    expect(workflow.permissions).toEqual({ contents: "read" });
+    expect(workflow.permissions).toEqual({});
     for (const job of Object.values(workflow.jobs)) expect(job.permissions).toBeUndefined();
+  });
+
+  it("never cancels CI's run: an edit restarts this workflow only", () => {
+    expect(workflow.concurrency).toEqual({ group: "pr-title-${{ github.event.pull_request.number }}", "cancel-in-progress": true });
+    expect(ci.on.pull_request!.types).not.toContain("edited");
+    expect(Object.values(ci.jobs).flatMap((job) => job.steps ?? []).map((candidate) => candidate.name)).not.toContain(step.name);
   });
 
   it("accepts the documented shape with any scope and summary text", () => {
