@@ -79,6 +79,7 @@ describe("browser lane", () => {
     expect(rows(text).map((row) => row.script)).toContain("scripts/phone-glass-header-demo-regression.ts");
     expect(rows(text).map((row) => row.script)).toContain("scripts/replay-clipboard-demo-regression.ts");
     expect(rows(text).map((row) => row.script)).toContain("scripts/theme-first-paint-demo-regression.ts");
+    expect(rows(text).map((row) => row.script)).toContain("scripts/terminal-paste-insert-demo-regression.ts");
     expect(rows(text).map((row) => row.script)).toContain("scripts/opencode-prompt-regression.ts");
     expect(rows(text).map((row) => row.script)).toContain("scripts/session-history-browser-qa.ts");
     expect(rows(text).map((row) => row.script)).toContain("scripts/command-outcome-demo-regression.ts");
