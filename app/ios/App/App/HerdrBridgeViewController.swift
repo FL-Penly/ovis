@@ -64,6 +64,8 @@ class HerdrBridgeViewController: CAPBridgeViewController {
     private var openingSpinner: UIActivityIndicatorView?
     private var openingLabel: UILabel?
     private var openingRetry: UIButton?
+    /// A page has finished loading in this one: later failures are left to the page.
+    private var firstPageDone = false
     /// How long a PC may take to answer the first request.
     private static let answerSeconds = 20
 
@@ -102,13 +104,19 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             }
             // the PC answered: WebKit shows its page from here, as it did before the cover existed
             proxy.onAnswer = { [weak self] in self?.hideOpening() }
-            proxy.onLoaded = { [weak self] in self?.hideOpening() }
+            proxy.onLoaded = { [weak self] in
+                self?.firstPageDone = true
+                self?.hideOpening()
+            }
             // a first page that broke off after it started: the error page; one cancelled on purpose
             // leaves the cover up, which the timeout turns into Try again. Only the PC's answer or a
             // finished page takes the cover away: while a PC's connection hangs, WebKit showed
             // error.html half-loaded, its script not run and its buttons dead.
             proxy.onPageFailed = { [weak self] webView, reason in
-                guard let self, self.openingView != nil, let reason else { return }
+                // the PC's first page only (the cover may be gone once the PC answered), never the
+                // bundled error page, which would load itself again
+                guard let self, !self.firstPageDone, let reason,
+                      ["http", "https"].contains(webView.url?.scheme?.lowercased() ?? "") else { return }
                 self.showFailure(in: webView, reason: reason)
             }
             failureProxy = proxy
@@ -169,11 +177,29 @@ class HerdrBridgeViewController: CAPBridgeViewController {
         stack.alignment = .center
         stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
-        cover.addSubview(stack)
+        // scrolls when large text makes it taller than the screen, so both buttons stay reachable
+        let scroll = UIScrollView()
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.alwaysBounceVertical = false
+        scroll.addSubview(stack)
+        cover.addSubview(scroll)
+        let content = scroll.contentLayoutGuide, frame = scroll.frameLayoutGuide
+        // the content is the screen's height, or taller when the text needs it, with the stack centered
+        let fill = content.heightAnchor.constraint(equalTo: frame.heightAnchor)
+        fill.priority = .defaultLow
         NSLayoutConstraint.activate([
-            stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
-            stack.leadingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.leadingAnchor, constant: 24),
-            stack.trailingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.trailingAnchor, constant: -24)
+            scroll.topAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.topAnchor),
+            scroll.bottomAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.trailingAnchor),
+            content.widthAnchor.constraint(equalTo: frame.widthAnchor),
+            content.heightAnchor.constraint(greaterThanOrEqualTo: frame.heightAnchor),
+            fill,
+            stack.centerYAnchor.constraint(equalTo: content.centerYAnchor),
+            stack.topAnchor.constraint(greaterThanOrEqualTo: content.topAnchor, constant: 24),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: content.bottomAnchor, constant: -24),
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24)
         ])
         view.addSubview(cover)
         openingView = cover
