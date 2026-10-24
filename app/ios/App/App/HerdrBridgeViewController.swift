@@ -102,11 +102,13 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             }
             proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
             proxy.onLoaded = { [weak self] in self?.hideOpening() }
-            // a first page that broke off after it started: the error page rather than a cover with no
-            // way on; a later page that breaks off is left as it was
+            // a first page that broke off after it started: the error page; one cancelled on purpose
+            // leaves the cover up, which the timeout turns into Try again. Only a finished page
+            // takes the cover away: while a PC's connection hangs, WebKit showed error.html
+            // half-loaded, its script not run and its buttons dead.
             proxy.onPageFailed = { [weak self] webView, reason in
-                guard let self else { return }
-                if self.openingView != nil, let reason { self.showFailure(in: webView, reason: reason) } else { self.hideOpening() }
+                guard let self, self.openingView != nil, let reason else { return }
+                self.showFailure(in: webView, reason: reason)
             }
             failureProxy = proxy
             webView.navigationDelegate = proxy
