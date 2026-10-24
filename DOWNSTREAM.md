@@ -65,14 +65,16 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `shared/git-panel.ts`, `server/git-panel.ts`, `server/git-panel-routes.ts` (+ test) | `/api/pane/git/{status,log,branches}` (GET) and `/api/pane/git/{stage,unstage,discard,commit,push,pull,fetch,checkout}` (POST). |
 | `src/components/GitPanel.tsx` (+ css), `src/lib/gitPanel.ts` (+ test) | The panel, its requests and the graph's lanes. |
+| `server/telemetry-default.test.ts` | Usage counts off on a fresh install. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (4 lines: fork and git), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (4 lines: fork and git), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
-(the demo has no fork route). `git diff upstream/main...main` shows the whole patch.
+(the demo has no fork route). Not marked: the fork note at the top of `README.md` and `README.zh-CN.md`, and this fork's copyright line in
+`LICENSE` and the README's license section. `git diff upstream/main...main` shows the whole patch.
 
 ## Syncing with upstream
 
@@ -115,4 +117,5 @@ herdr plugin action invoke devswha.ovis.start
 ## Not covered
 
 - Remote PCs added over SSH run upstream's bundle (`server/remote-bundle.ts`), so they have no Fork button.
-- Install counts, if left on, go to upstream's telemetry (`OVIS_TELEMETRY=0` turns them off).
+- Install counts go to upstream's telemetry when turned on. A fresh install of this fork starts with them off
+  (`enabledByDefault: false` in `server/index.ts`); an install that already had them on keeps its choice.

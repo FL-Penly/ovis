@@ -2,6 +2,12 @@
 
 Ovis，herdr 的浏览器和手机客户端。
 
+> **这是 [FL-Penly/ovis](https://github.com/FL-Penly/ovis)，[devswha/ovis](https://github.com/devswha/ovis) 的一个 fork。**
+> 它跟随上游 `main`，另外加了：从任意回复分叉会话、模式标签、herdr-web 风格的树形侧边栏、固定提示词、工作区和标签页快捷键
+> （⌘↑↓←→、⌘T、⌘W）以及 Source Control 面板，详见 [DOWNSTREAM.md](DOWNSTREAM.md)。安装用
+> `herdr plugin install FL-Penly/ovis`（下文的 `ovis.sh` 安装脚本装的是上游版本）。这里的匿名使用统计默认关闭，可在设置里打开。
+> 本页其余内容均来自上游；fork 自己的功能请在[这里](https://github.com/FL-Penly/ovis/issues)反馈。
+
 <p align="center">
   <img src="public/icons/icon-192.png" alt="Ovis" width="100">
 </p>

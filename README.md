@@ -2,6 +2,13 @@
 
 Ovis, the browser and phone client for herdr.
 
+> **This is [FL-Penly/ovis](https://github.com/FL-Penly/ovis), a fork of [devswha/ovis](https://github.com/devswha/ovis).**
+> It follows upstream's `main` and adds forking a session from any reply, a mode chip, herdr-web's tree sidebar,
+> a sticky prompt, workspace and tab keys (⌘↑↓←→, ⌘T, ⌘W) and a Source Control panel: see
+> [DOWNSTREAM.md](DOWNSTREAM.md). Install it with `herdr plugin install FL-Penly/ovis` (the `ovis.sh` installer
+> below installs upstream's). Anonymous usage counts are off here unless turned on in Settings. Everything else
+> on this page is upstream's; report this fork's own features [here](https://github.com/FL-Penly/ovis/issues).
+
 <p align="center">
   <img src="public/icons/icon-192.png" alt="Ovis" width="100">
 </p>
@@ -198,4 +205,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to send a change, [development](docs/deve
 
 ## license
 
-[MIT](LICENSE). Copyright © 2026 devswha.
+[MIT](LICENSE). Copyright © 2026 devswha; this fork's changes © 2026 FL-Penly.
