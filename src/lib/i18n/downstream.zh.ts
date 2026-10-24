@@ -39,7 +39,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Finished, not seen yet": "已完成，未查看",
   "Idle": "空闲",
   "Actions for {title}": "{title} 的操作",
-  "New tab in {name}": "在 {name} 新建标签页",
   "Earlier sessions here": "这里的历史会话",
   "Rename the workspace": "重命名工作区",
   "Rename the pane": "重命名窗格",
@@ -59,4 +58,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Dispatch instructions copied: paste them into another session": "已复制派活说明，贴给另一个会话就行",
   "Couldn't copy: the browser refused the clipboard": "复制失败：浏览器不允许访问剪贴板",
   "Back to this message": "回到这条消息",
+  "New terminal tab in {name}": "在 {name} 新建终端标签页",
+  "Start an agent here…": "在这里启动 agent…",
 };

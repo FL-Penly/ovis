@@ -39,7 +39,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Finished, not seen yet": "完了・未確認",
   "Idle": "待機中",
   "Actions for {title}": "{title} の操作",
-  "New tab in {name}": "{name} に新しいタブ",
   "Earlier sessions here": "このフォルダーの過去のセッション",
   "Rename the workspace": "ワークスペース名を変更",
   "Rename the pane": "ペイン名を変更",
@@ -59,4 +58,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Dispatch instructions copied: paste them into another session": "依頼手順をコピーしました。別のセッションに貼り付けてください",
   "Couldn't copy: the browser refused the clipboard": "コピーできません: ブラウザーがクリップボードを拒否しました",
   "Back to this message": "このメッセージに戻る",
+  "New terminal tab in {name}": "{name} に新しいターミナルタブ",
+  "Start an agent here…": "ここでエージェントを起動…",
 };

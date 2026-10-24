@@ -39,7 +39,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Finished, not seen yet": "완료, 아직 안 봄",
   "Idle": "대기",
   "Actions for {title}": "{title} 작업",
-  "New tab in {name}": "{name}에 새 탭",
   "Earlier sessions here": "이 폴더의 이전 세션",
   "Rename the workspace": "워크스페이스 이름 바꾸기",
   "Rename the pane": "창 이름 바꾸기",
@@ -59,4 +58,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Dispatch instructions copied: paste them into another session": "작업 전달 안내를 복사했습니다. 다른 세션에 붙여 넣으세요",
   "Couldn't copy: the browser refused the clipboard": "복사 실패: 브라우저가 클립보드를 거부했습니다",
   "Back to this message": "이 메시지로 돌아가기",
+  "New terminal tab in {name}": "{name}에 새 터미널 탭",
+  "Start an agent here…": "여기서 에이전트 시작…",
 };

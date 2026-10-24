@@ -242,7 +242,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   };
 
   const menuItems = (open: Menu): RowMenuItem[] => open.kind === "workspace" ? [
-    { id: "new-tab", label: t("New tab in {name}", { name: open.workspace.label }), icon: Plus, run: () => actions.openNewTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id }) },
+    { id: "new-tab", label: t("New terminal tab in {name}", { name: open.workspace.label }), icon: Plus, run: () => run(() => actions.openTerminalTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id })) },
+    { id: "new-agent-tab", label: t("Start an agent here…"), icon: SquarePen, run: () => actions.openNewTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id }) },
     { id: "history", label: t("Earlier sessions here"), icon: History, run: () => actions.openSessionHistory({ machineId: machine.id, workspaceId: open.workspace.workspace_id }) },
     { id: "rename", label: t("Rename the workspace"), icon: Pencil, run: () => {
       const label = window.prompt(t("Rename the workspace"), open.workspace.label)?.trim();
@@ -274,7 +275,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       const open = !folded.has(key) || holdsSelection;
       const branch = branches.get(workspace.workspace_id)?.branch ?? null;
       const hot = open || !online ? null : hottest(agents.map(({ pane }) => status(pane)));
-      const addLabel = t("New tab in {name}", { name: workspace.label });
+      // a + opens a shell at once, as herdr's own new tab; an agent with options is in the head's menu
+      const addLabel = t("New terminal tab in {name}", { name: workspace.label });
       return <div key={workspace.workspace_id} className="tree-group" role="group" aria-label={workspace.label}>
         <div className="tree-head" onContextMenu={(event) => openMenu(event, { kind: "workspace", workspace }, true)}>
           <button type="button" className="tree-toggle" aria-expanded={open} onClick={() => {
@@ -288,7 +290,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
             {branch && branch !== workspace.label && <span className="tree-head-branch">{branch}</span>}
           </button>
           <button type="button" className="tree-add" aria-label={addLabel} title={addLabel} disabled={!online}
-            onClick={() => actions.openNewTab({ machineId: machine.id, workspaceId: workspace.workspace_id })}><Plus aria-hidden="true" /></button>
+            onClick={() => run(() => actions.openTerminalTab({ machineId: machine.id, workspaceId: workspace.workspace_id }))}><Plus aria-hidden="true" /></button>
         </div>
         {open && <>
           {agents.map((entry) => agentRow(entry, null))}
