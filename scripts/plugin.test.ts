@@ -148,7 +148,7 @@ describe("server.log", () => {
 
   it("shows the end of a line too long to read whole", async () => {
     const started = await failedStart(`process.stdout.write("x".repeat(100_000) + "end\\n");`);
-    expect(shown(started.err)).toEqual([`${"x".repeat(64 * 1024 - 3)}end`]);
+    expect(shown(started.err)).toEqual([`${"x".repeat(64 * 1024 - 4)}end`]);
   });
 
   it("shows the last 15 lines", async () => {

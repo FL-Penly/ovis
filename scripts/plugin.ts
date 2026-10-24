@@ -272,8 +272,8 @@ const LOG_TAIL_BYTES = 64 * 1024;
  */
 function logSince(log: number, offset: number): string {
   const size = fstatSync(log).size;
-  // one byte before a cut read shows whether it starts at a line's beginning
-  const from = Math.max(offset, size - LOG_TAIL_BYTES - 1);
+  // a cut read's first byte only shows whether the next one starts a line
+  const from = Math.max(offset, size - LOG_TAIL_BYTES);
   const bytes = Buffer.alloc(Math.max(0, size - from));
   let text = bytes.subarray(0, readSync(log, bytes, 0, bytes.length, from)).toString("utf8");
   // a read that starts mid-file drops its cut-off first piece, unless that piece is all there is
