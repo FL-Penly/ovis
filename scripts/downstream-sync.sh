@@ -38,7 +38,7 @@ fi
 if ! { bun install --frozen-lockfile &&
   bun run typecheck &&
   bun run build &&
-  bun test server/fork-routes.test.ts server/codex-forks.test.ts server/codex-processes.test.ts integrations/quick-fork src/lib/agentMode.test.ts src/components/TreeSidebar.test.ts src/components/StickyPrompt.test.ts src/lib/navShortcuts.test.ts src/lib/i18n.test.ts scripts/conventions.test.ts; }; then
+  bun test server/fork-routes.test.ts server/codex-forks.test.ts server/codex-processes.test.ts server/git-panel.test.ts src/lib/gitPanel.test.ts integrations/quick-fork src/lib/agentMode.test.ts src/components/TreeSidebar.test.ts src/components/StickyPrompt.test.ts src/lib/navShortcuts.test.ts src/lib/i18n.test.ts scripts/conventions.test.ts; }; then
   say "checks failed; undoing the rebase"
   git reset --hard "$before"
   exit 3
