@@ -21,8 +21,8 @@ export interface SettingsPageEntry {
  * Japanese and Chinese write it as one word the phrase lacks (Chat font size, Terminal font size).
  *
  * After the pages come the groups a setting is looked for by but whose page's words do not say it,
- * as Zed's settings search lands on the setting: each is found by its heading and the label of the
- * setting it holds. Within a rank a page comes before its groups.
+ * as Zed's settings search lands on the setting: each is found by its heading and the labels of the
+ * settings it holds, a touch screen's and a desktop's alike. Within a rank a page comes before its groups.
  */
 export function settingsPageEntries(t: Translate): SettingsPageEntry[] {
   return [
@@ -38,8 +38,8 @@ export function settingsPageEntries(t: Translate): SettingsPageEntry[] {
     { id: "integrations", label: t("Agent integrations"), aliases: t("agents hooks claude codex") },
     { id: "about", label: t("About"), aliases: t("version update release herdr") },
     { id: "appearance", section: "typography", label: t("Typography"), aliases: t("Interface font size") },
-    { id: "chat", section: "composer", label: t("Composer"), aliases: t("Enter sends") },
-    { id: "chat", section: "quick-replies", label: t("Quick replies"), aliases: "" },
+    { id: "chat", section: "composer", label: t("Composer"), aliases: [t("Enter sends"), t("Return inserts a new line"), t("Send queued messages automatically"), t("New tab button"), t("Suggestion chip")].join(" ") },
+    { id: "chat", section: "quick-replies", label: t("Quick replies"), aliases: t("Show above the message box") },
     { id: "voice", section: "openai-key", label: t("OpenAI API key"), aliases: "" },
   ];
 }

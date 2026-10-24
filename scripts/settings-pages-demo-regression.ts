@@ -68,6 +68,11 @@ const MATRIX: readonly (readonly ["en" | "ko" | "ja" | "zh", string, string, str
   ["en", "shortcuts", "shortcuts", "-"],
   ["en", "phone", "devices", "-"],
   ["en", "OpenAI API key", "voice", "openai-key"],
+  ["en", "Return inserts a new line", "chat", "composer"],
+  ["en", "Send queued messages automatically", "chat", "composer"],
+  ["en", "New tab button", "chat", "composer"],
+  ["en", "Suggestion chip", "chat", "composer"],
+  ["en", "Show above the message box", "chat", "quick-replies"],
   ["ko", "인터페이스 글자 크기", "appearance", "typography"],
   ["ko", "채팅 글자 크기", "chat", "-"],
   ["ko", "Enter로 보내기", "chat", "composer"],
@@ -76,6 +81,8 @@ const MATRIX: readonly (readonly ["en" | "ko" | "ja" | "zh", string, string, str
   ["ko", "OpenAI API 키", "voice", "openai-key"],
   ["ko", "단축키", "shortcuts", "-"],
   ["ko", "알림", "alerts", "-"],
+  ["ko", "대기 메시지 자동 전송", "chat", "composer"],
+  ["ko", "입력창 위에 표시", "chat", "quick-replies"],
   ["ja", "インターフェースの文字サイズ", "appearance", "typography"],
   ["ja", "チャットのフォントサイズ", "chat", "-"],
   ["ja", "Enter で送信", "chat", "composer"],
@@ -84,6 +91,8 @@ const MATRIX: readonly (readonly ["en" | "ko" | "ja" | "zh", string, string, str
   ["ja", "OpenAI API キー", "voice", "openai-key"],
   ["ja", "ショートカット", "shortcuts", "-"],
   ["ja", "通知", "alerts", "-"],
+  ["ja", "送信待ちメッセージを自動で送信", "chat", "composer"],
+  ["ja", "入力欄の上に表示", "chat", "quick-replies"],
   ["zh", "界面字号", "appearance", "typography"],
   ["zh", "聊天字号", "chat", "-"],
   ["zh", "按 Enter 发送", "chat", "composer"],
@@ -92,6 +101,8 @@ const MATRIX: readonly (readonly ["en" | "ko" | "ja" | "zh", string, string, str
   ["zh", "OpenAI API 密钥", "voice", "openai-key"],
   ["zh", "快捷键", "shortcuts", "-"],
   ["zh", "提醒", "alerts", "-"],
+  ["zh", "自动发送排队消息", "chat", "composer"],
+  ["zh", "显示在输入框上方", "chat", "quick-replies"],
 ];
 
 interface SearchResult { width: number; language: string; query: string; expected: { page: string; section: string }; first: string | null; page: string | null; focusedSection: string | null; sectionVisible: boolean | null; overflow: string[]; focusReturned: boolean; pass: boolean }
