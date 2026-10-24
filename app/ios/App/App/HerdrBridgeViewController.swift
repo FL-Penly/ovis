@@ -32,10 +32,6 @@ enum PCStore {
     /// Why the last load failed, for the error page.
     static var failure: String?
 
-    /// Whether the next view controller starts on the error page instead of the PC: a PC that did
-    /// not open in time. In memory only; the next view controller takes it.
-    static var startOnError = false
-
     static func remember(_ origin: String) {
         saved = [origin] + saved.filter { $0 != origin }
     }
@@ -64,20 +60,16 @@ class HerdrBridgeViewController: CAPBridgeViewController {
     private var openingView: UIView?
     /// Gives up on a PC that has not answered, instead of WebKit's own wait of a minute or more.
     private var answerTimeout: DispatchWorkItem?
-    /// This one shows the error page for the current PC instead of opening it (PCStore.startOnError).
-    private lazy var onError: Bool = {
-        defer { PCStore.startOnError = false }
-        return PCStore.startOnError && PCStore.current != nil
-    }()
+    /// The cover's spinner, text and Try again, which change when the PC does not open in time.
+    private var openingSpinner: UIActivityIndicatorView?
+    private var openingLabel: UILabel?
+    private var openingRetry: UIButton?
     /// How long a PC may take to answer the first request.
     private static let answerSeconds = 20
 
     override func instanceDescriptor() -> InstanceDescriptor {
         let descriptor = super.instanceDescriptor()
-        if onError {
-            // the bundled error page as the first page, which loads like the connect screen does
-            descriptor.appStartPath = "error.html"
-        } else if let origin = PCStore.current, let host = URL(string: origin)?.host {
+        if let origin = PCStore.current, let host = URL(string: origin)?.host {
             // what server.url sets; the pairing link until a PC page has loaded, the origin after it
             descriptor.serverURL = PCStore.pendingStart ?? origin + "/"
             // the whole PC is the app: its own links stay in the WebView, others go to Safari
@@ -104,7 +96,7 @@ class HerdrBridgeViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         // before super, which starts the first load
-        if let webView = webView, PCStore.current != nil, !onError {
+        if let webView = webView, PCStore.current != nil {
             let proxy = NavigationFailureProxy(inner: webView.navigationDelegate) { [weak self] webView, reason in
                 self?.showFailure(in: webView, reason: reason)
             }
@@ -120,19 +112,13 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             webView.navigationDelegate = proxy
         }
         super.viewDidLoad()
-        if let origin = PCStore.current, !onError {
+        if let webView = webView, let origin = PCStore.current {
             showOpening(origin)
-            let timeout = DispatchWorkItem { [weak self] in
-                // only while this one is still the app's screen for that PC (not after Change PC)
-                guard let self, self.view.window != nil, PCStore.current == origin else { return }
-                let host = URL(string: origin)?.host ?? origin
-                PCStore.failure = Self.korean
-                    ? "\(host)이(가) \(Self.answerSeconds)초 안에 열리지 않았습니다."
-                    : "\(host) did not open within \(Self.answerSeconds) seconds."
-                // a fresh view controller on the error page: loading it into this web view after
-                // stopping the PC's first load left WebKit stuck with the cover up
-                PCStore.startOnError = true
-                HerdrBridgeViewController.reopen()
+            let timeout = DispatchWorkItem { [weak self, weak webView] in
+                // said on the cover itself: while the PC's connection hangs, WebKit did not show the
+                // error page either (it stayed unpainted), in this web view or a new one
+                webView?.stopLoading()
+                self?.showNoAnswer(origin)
             }
             answerTimeout = timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.answerSeconds), execute: timeout)
@@ -167,8 +153,15 @@ class HerdrBridgeViewController: CAPBridgeViewController {
         })
         change.tintColor = .white
         change.titleLabel?.font = .preferredFont(forTextStyle: .body)
+        let retry = UIButton(type: .system, primaryAction: UIAction(title: Self.korean ? "다시 시도" : "Try again") { _ in
+            PCStore.failure = nil
+            HerdrBridgeViewController.reopen()
+        })
+        retry.tintColor = UIColor(red: 0xf0 / 255, green: 0xa8 / 255, blue: 0x30 / 255, alpha: 1)
+        retry.titleLabel?.font = .preferredFont(forTextStyle: .headline)
+        retry.isHidden = true
 
-        let stack = UIStackView(arrangedSubviews: [spinner, label, change])
+        let stack = UIStackView(arrangedSubviews: [spinner, label, retry, change])
         stack.axis = .vertical
         stack.alignment = .center
         stack.spacing = 16
@@ -181,6 +174,39 @@ class HerdrBridgeViewController: CAPBridgeViewController {
         ])
         view.addSubview(cover)
         openingView = cover
+        openingSpinner = spinner
+        openingLabel = label
+        openingRetry = retry
+    }
+
+    /// The cover once the PC has not answered in time: why, what to check, Try again and Change PC.
+    private func showNoAnswer(_ origin: String) {
+        let host = URL(string: origin)?.host ?? origin
+        var text = Self.korean
+            ? "\(host)이(가) \(Self.answerSeconds)초 안에 응답하지 않았습니다."
+            : "\(host) did not answer within \(Self.answerSeconds) seconds."
+        if Self.tailnet(host) {
+            text += Self.korean
+                ? "\n\nTailscale 주소입니다. 이 휴대폰에서 Tailscale이 꺼져 있을 수 있습니다. Tailscale 앱에서 연결을 켠 뒤 다시 시도를 누르세요."
+                : "\n\nThis is a Tailscale address, and Tailscale may be off on this phone. Turn it on in the Tailscale app, then tap Try again."
+        } else {
+            text += Self.korean
+                ? "\n\nPC가 켜져 있는지, 거기서 Ovis가 실행 중인지, 이 휴대폰이 PC에 닿을 수 있는지 확인하세요."
+                : "\n\nCheck that the PC is on, that Ovis runs there, and that this phone can reach it."
+        }
+        openingSpinner?.stopAnimating()
+        openingSpinner?.isHidden = true
+        openingLabel?.text = text
+        openingRetry?.isHidden = false
+    }
+
+    /// A MagicDNS name or a Tailscale IP (100.64.0.0/10, fd7a:115c:a1e0::/48), which opens only
+    /// while Tailscale is connected on the phone; error.html has the same test.
+    private static func tailnet(_ host: String) -> Bool {
+        let name = host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased()
+        if name.hasSuffix(".ts.net") || name.hasPrefix("fd7a:115c:a1e0:") { return true }
+        let parts = name.split(separator: ".").compactMap { Int($0) }
+        return parts.count == 4 && parts[0] == 100 && (64...127).contains(parts[1])
     }
 
     private func hideOpening() {
