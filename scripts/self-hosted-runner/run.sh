@@ -37,6 +37,8 @@ case "$COUNT" in ''|*[!0-9]*|0) echo "--count must be a positive integer" >&2; e
 # so a missing file stops the launcher instead of every container failing to start.
 ENV_ARGS=()
 if [ -n "$ENV_FILE" ]; then
+  # a path starting with - (even "-" itself, which grep reads as stdin after --) is the file of that name
+  case "$ENV_FILE" in -*) ENV_FILE="./$ENV_FILE" ;; esac
   [ -f "$ENV_FILE" ] && [ -r "$ENV_FILE" ] || { echo "--env-file: cannot read $ENV_FILE" >&2; exit 2; }
   # Only CHECK_HOST_* numbers: docker copies a bare NAME line from this launcher's own environment
   # (GH_TOKEN, say) into every container, where any job could read it. A refused line is named by its

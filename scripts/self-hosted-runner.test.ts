@@ -192,6 +192,29 @@ describe.skipIf(process.platform === "win32")("self-hosted runner launcher", () 
     expect(calls).not.toContain("docker run");
   });
 
+  it("checks a host env file named - as that file, never the launcher's stdin", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "herdr-runner-dash-"));
+    try {
+      writeFileSync(join(cwd, "-"), "GH_TOKEN\n");
+      // stubs first on PATH: a launcher that wrongly went on must never reach the real gh or docker
+      const bin = join(cwd, "bin");
+      mkdirSync(bin);
+      for (const tool of ["gh", "docker"]) {
+        writeFileSync(join(bin, tool), "#!/bin/sh\nexit 1\n");
+        chmodSync(join(bin, tool), 0o755);
+      }
+      const result = spawnSync("bash", [script, "--repo", "owner/repo", "--once", "--env-file", "-"], {
+        cwd, encoding: "utf8", timeout: 10_000, input: "",
+        env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ""}` },
+      });
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain("refused line(s): 1\n");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("refuses to start when it cannot read the host env file to check it", () => {
     const { result, calls } = runRunner({ envFile: "present", grepReadError: true });
     expect(result.status).toBe(2);
