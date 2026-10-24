@@ -53,6 +53,7 @@ import { composerFull, formatChars, pasteOverflow } from "../lib/composerLength.
 import { normalizeComposerImageFile } from "../lib/composerImageMime.ts";
 import { paneStatus } from "../lib/status.ts";
 import { modelLabel } from "../lib/modelName.ts";
+import { ModeChip } from "./ModeChip.tsx"; // downstream: DOWNSTREAM.md
 import { useFacesArrived } from "../lib/fontFaces.ts";
 import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/mentions.ts";
 import { resolveComposerMenuActiveItemId } from "../lib/composerMenuHighlight.ts";
@@ -1366,7 +1367,7 @@ export function Composer({
                 (.is-bare): the mark, a level if it has one, and the ring stand in the row as they are */}
             <span className={`composer-pill${metadata?.model ? "" : " is-bare"}`}>
               {agent && <AgentMark agent={agent} size={14} />}
-              {modelShown && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
+              {modelShown && <button type="button" className="composer-model-info composer-model-switch" aria-label={t("Model and reasoning")} disabled={inert || role !== "interact"} onClick={() => void onSend("/model")}>{/* downstream: /model opens the picker card */}
                 {/* a name only for an id modelLabel can name for certain; any other id is drawn as received, in the identifier face */}
                 <span className={`composer-model${model ? model.named ? "" : " is-id" : " is-none"}`} title={metadata?.model ?? t("Model not available")}>{model?.text ?? t("Model —")}</span>
                 {/* behind a name the id as received is still read; a touch cannot reach the title */}
@@ -1379,7 +1380,7 @@ export function Composer({
                     <span className="composer-reasoning-short" aria-hidden="true">{metadata.reasoning_effort}</span>
                   </>}
                 </span>
-              </span>}
+              </button>}
               {metadata?.context && <ContextRing context={metadata.context} shown={contextShown} readOnly={mobile} onToggle={() => setContextShown((open) => !open)} onCompact={compactNow} />}
               {usage !== undefined && usage.problem === null && usageLimit !== undefined && <span
                 className={`composer-usage${usageLimit.used_percent >= HIGH_PERCENT ? " is-high" : ""}${usage.problem ? " has-problem" : ""}`}
@@ -1389,6 +1390,7 @@ export function Composer({
                 <span className="visually-hidden">{usageAccessible}</span>
               </span>}
             </span>
+            <ModeChip paneId={paneId} agent={agent} agentStatus={agentStatus} disabled={inert || role !== "interact"} />{/* downstream */}
             {/* the chip is a button in the left controls; its count is still said here, where a change is announced */}
             {backgroundTasks > 0 && <span className="composer-task-count visually-hidden">{t(backgroundTasks === 1 ? "{n} background task" : "{n} background tasks", { n: backgroundTasks })}</span>}
           </span>

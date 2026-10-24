@@ -1,0 +1,65 @@
+/* Downstream (DOWNSTREAM.md): the mode chip beside the model pill, a control of the same height */
+.composer-mode-chip {
+  flex: 0 0 auto;
+  height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.composer-mode-chip:hover:not(:disabled) {
+  color: var(--text-strong);
+}
+
+.composer-mode-chip:focus-visible {
+  outline: var(--ring);
+  outline-offset: var(--ring-offset);
+}
+
+.composer-mode-chip:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* the modes that skip the agent's questions read as a warning */
+.composer-mode-chip.is-bypass-permissions,
+.composer-mode-chip.is-yolo-mode {
+  background: var(--danger-tint);
+  color: var(--danger-text);
+}
+
+.composer-mode-chip.is-plan-mode {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+/* the model pill, a button now (it sends /model): it keeps the pill's look */
+.composer-model-switch {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.composer-mode-chip.is-stepping {
+  opacity: 0.7;
+}
+
+/* why a switch did not happen, readable on a phone too, where a tooltip never shows */
+.composer-mode-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--danger-text);
+  font-size: var(--fs-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
