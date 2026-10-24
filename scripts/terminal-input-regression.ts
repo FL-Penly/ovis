@@ -475,7 +475,7 @@ export async function checkTerminalInput(browser: Browser, origin: string, pane:
     }
     const beforeMultiLine = await draftText();
     await pasteIntoTerminal("x\ny");
-    await page.waitForTimeout(100); // fixed wait: a multi-line paste beside a held draft may send nothing
+    await until(async () => (await banner.isVisible()) || (await draftText()) !== beforeMultiLine);
     assert.equal(sent.length, afterEscape, "a multi-line paste beside a held draft reaches nothing");
     // never a silent drop: refused with the note, or taken into the draft (a draft that folds line breaks)
     const multiLineNoted = await banner.isVisible();
