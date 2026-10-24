@@ -45,4 +45,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Rename the pane": "창 이름 바꾸기",
   "Close the pane": "창 닫기",
   "Closes {title} and ends what runs in it.": "「{title}」을(를) 닫고 그 안에서 실행 중인 것을 끝냅니다.",
+  "Show workspaces without an agent": "에이전트 없는 워크스페이스 표시",
+  "Hide workspaces without an agent": "에이전트 없는 워크스페이스 숨기기",
 };

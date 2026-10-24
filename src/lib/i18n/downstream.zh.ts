@@ -45,4 +45,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Rename the pane": "重命名窗格",
   "Close the pane": "关闭窗格",
   "Closes {title} and ends what runs in it.": "关闭「{title}」并结束其中运行的程序。",
+  "Show workspaces without an agent": "显示没有代理的工作区",
+  "Hide workspaces without an agent": "隐藏没有代理的工作区",
 };

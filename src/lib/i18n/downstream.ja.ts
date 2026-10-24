@@ -45,4 +45,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Rename the pane": "ペイン名を変更",
   "Close the pane": "ペインを閉じる",
   "Closes {title} and ends what runs in it.": "「{title}」を閉じ、中で動いているものを終了します。",
+  "Show workspaces without an agent": "エージェントのないワークスペースを表示",
+  "Hide workspaces without an agent": "エージェントのないワークスペースを隠す",
 };

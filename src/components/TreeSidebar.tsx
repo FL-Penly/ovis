@@ -8,7 +8,7 @@
  * the layout is "tree"; the footer's layout button switches back to upstream's.
  */
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Ellipsis, History, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
+import { BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Ellipsis, EyeOff, History, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
 import type { Machine } from "../../shared/machines.ts";
 import type { AgentStatus, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
 import type { AppActions } from "../lib/actions.ts";
@@ -27,10 +27,11 @@ import { displayPaneTitle } from "./Sidebar.tsx";
 import "./TreeSidebar.css";
 
 type Layout = "tree" | "classic";
-interface TreeState { layout: Layout; needsOnly: boolean; showTerminals: boolean; folded: ReadonlySet<string> }
+interface TreeState { layout: Layout; needsOnly: boolean; showTerminals: boolean; hideAgentless: boolean; folded: ReadonlySet<string> }
 
 const LAYOUT_KEY = "ovis-downstream:sidebar-layout";
 const TERMINALS_KEY = "ovis-downstream:sidebar-terminals";
+const AGENTLESS_KEY = "ovis-downstream:sidebar-hide-agentless";
 const FOLD_KEY = "ovis-downstream:sidebar-folded";
 
 const stored = (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } };
@@ -43,6 +44,8 @@ let state: TreeState = {
   layout: stored(LAYOUT_KEY) === "classic" ? "classic" : "tree",
   needsOnly: false,
   showTerminals: stored(TERMINALS_KEY) === "1",
+  // on unless turned off: a workspace without an agent (a plugin's, a spare shell) is rarely what the list is for
+  hideAgentless: stored(AGENTLESS_KEY) !== "0",
   folded: storedFolds(),
 };
 const listeners = new Set<() => void>();
@@ -52,6 +55,7 @@ function update(next: Partial<TreeState>): void {
   state = { ...state, ...next };
   store(LAYOUT_KEY, state.layout);
   store(TERMINALS_KEY, state.showTerminals ? "1" : "0");
+  store(AGENTLESS_KEY, state.hideAgentless ? "1" : "0");
   store(FOLD_KEY, JSON.stringify([...state.folded]));
   for (const listener of listeners) listener();
 }
@@ -108,14 +112,16 @@ export function SidebarLayoutToggle() {
 /** The top of the list: New session, Needs you with its count, and the list's head with its fold-all and terminal switches. */
 export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): void }) {
   const t = useT();
-  const { needsOnly, showTerminals, folded } = useTreeState();
+  const { needsOnly, showTerminals, hideAgentless, folded } = useTreeState();
   const activity = useSidebarActivity();
   const online = machines.filter((machine) => machine.state === "connected");
   const count = online.reduce((sum, machine) => sum + sidebarAgents(machine.snapshot).filter(({ pane }) => needsYou(activity.status(machine.id, pane))).length, 0);
-  const keys = online.flatMap((machine) => (machine.snapshot?.workspaces ?? []).map((workspace) => foldKey(machine.id, workspace.workspace_id)));
+  const keys = online.flatMap((machine) => treeGroups(machine.snapshot).filter((group) => !hideAgentless || group.agents.length > 0)
+    .map(({ workspace }) => foldKey(machine.id, workspace.workspace_id)));
   const anyOpen = keys.some((key) => !folded.has(key));
   const foldLabel = anyOpen ? t("Fold every workspace") : t("Unfold every workspace");
   const terminalsLabel = showTerminals ? t("Hide plain terminals") : t("Show plain terminals");
+  const agentlessLabel = hideAgentless ? t("Show workspaces without an agent") : t("Hide workspaces without an agent");
   return <div className="tree-top">
     <nav className="tree-nav">
       <button type="button" className="tree-nav-item" onClick={onNew}><SquarePen aria-hidden="true" /><span>{t("Start a session")}</span></button>
@@ -133,6 +139,8 @@ export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): voi
             for (const key of keys) if (anyOpen) next.add(key); else next.delete(key);
             update({ folded: next });
           }}>{anyOpen ? <ChevronsDownUp aria-hidden="true" /> : <ChevronsUpDown aria-hidden="true" />}</button>
+        <button type="button" className="tree-tool" aria-pressed={hideAgentless} aria-label={agentlessLabel} title={agentlessLabel}
+          onClick={() => update({ hideAgentless: !hideAgentless })}><EyeOff aria-hidden="true" /></button>
         <button type="button" className="tree-tool" aria-pressed={showTerminals} aria-label={terminalsLabel} title={terminalsLabel}
           onClick={() => update({ showTerminals: !showTerminals })}><Terminal aria-hidden="true" /></button>
       </div>}
@@ -149,7 +157,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const t = useT();
   const api = useMachineApi();
   const activity = useSidebarActivity();
-  const { needsOnly, showTerminals, folded } = useTreeState();
+  const { needsOnly, showTerminals, hideAgentless, folded } = useTreeState();
   const { branches } = useWorktreeBranches(snapshot, online, true);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [closing, setClosing] = useState<{ pane: PaneInfo; title: string } | null>(null);
@@ -225,6 +233,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     body = groups.map(({ workspace, agents, terminals }) => {
       const key = foldKey(machine.id, workspace.workspace_id);
       const holdsSelection = [...agents.map(({ pane }) => pane), ...terminals].some((pane) => pane.pane_id === selectedPaneId);
+      // one without an agent stays while it holds what is open
+      if (hideAgentless && agents.length === 0 && !holdsSelection) return null;
       const open = !folded.has(key) || holdsSelection;
       const branch = branches.get(workspace.workspace_id)?.branch ?? null;
       const hot = open || !online ? null : hottest(agents.map(({ pane }) => status(pane)));

@@ -20,7 +20,8 @@ is on screen. The model and effort label is a button: it sends `/model`, whose p
 agents with an open question or an answer not seen yet). Under Sessions, every workspace is a group head (fold,
 branch, a + for a new tab, and while folded the dot of the agent that most asks for a look) over its agents, each
 with herdr-web's state dot, its mark and its title; plain terminals join their workspaces when the list's
-terminal switch is on, and one button folds or unfolds them all. A lone PC's header is not drawn. Right-click
+terminal switch is on, one button folds or unfolds them all, and another (on by default) hides the workspaces
+that run no agent, such as agent-board's Board and Wake. A lone PC's header is not drawn. Right-click
 (or ⋯) renames or closes a pane, and a group head offers a new tab, earlier sessions and rename. It replaces the
 workspace list and the Agents list; the footer's layout button switches back to upstream's (kept per browser),
 which keeps the rest of workspace management (worktrees, reorder, pins). Upstream's browser regression scripts
