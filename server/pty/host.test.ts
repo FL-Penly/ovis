@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { probeRustHost, resetPtyHostForTests, RUST_SIDECAR_BUILD, rustSidecar, rustSidecarPath } from "./host.ts";
 import { PtySession, type PtySessionOptions } from "./session.ts";
+import { announcePtyHost } from "./sidecar.ts";
 
 /** the Rust host these tests run: OVIS_PTY_SIDECAR_BIN, else the release build */
 const RUST_HOST = rustSidecar({ ...process.env, OVIS_PTY_SIDECAR: "rust" });
@@ -156,6 +157,24 @@ describe("rustSidecar policy", () => {
       for (const choice of ["node", "", undefined]) expect(rustSidecar({ OVIS_PTY_SIDECAR: choice })).toBeNull();
       expect(said).not.toHaveBeenCalled();
     } finally { said.mockRestore(); }
+  });
+
+  it.skipIf(process.platform === "win32")("reports an unknown value at startup even on a PC without Node, and never probes there", () => {
+    const spawn = spyOn(Bun, "spawnSync");
+    const said = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      announcePtyHost(false, { OVIS_PTY_SIDECAR: "RUST" });
+      expect(said).toHaveBeenCalledTimes(1);
+      expect(String(said.mock.calls[0]?.[0])).toContain('OVIS_PTY_SIDECAR=RUST: expected "node" or "rust"');
+      said.mockClear();
+      announcePtyHost(false, { OVIS_PTY_SIDECAR: "rust" });
+      expect(said).toHaveBeenCalledTimes(1);
+      expect(String(said.mock.calls[0]?.[0])).toContain("this PC has no Node");
+      said.mockClear();
+      for (const choice of ["node", "", undefined]) announcePtyHost(false, { OVIS_PTY_SIDECAR: choice });
+      expect(said).not.toHaveBeenCalled();
+      expect(spawn).not.toHaveBeenCalled();
+    } finally { spawn.mockRestore(); said.mockRestore(); }
   });
 
   it.skipIf(process.platform === "win32")("caches each passing path and announces it once", () => {

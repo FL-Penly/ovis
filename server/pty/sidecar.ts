@@ -52,17 +52,23 @@ const here: SidecarRuntime = {
 
 let known: boolean | null = null;
 
+/**
+ * Says at startup, not at the first attach, what OVIS_PTY_SIDECAR asks for: an unknown value always,
+ * and the Rust host's check only where the Node sidecar could run.
+ */
+export function announcePtyHost(sidecar: boolean, env: Record<string, string | undefined> = process.env): void {
+  const asked = env["OVIS_PTY_SIDECAR"];
+  if (!asked || asked === "node" || process.platform === "win32") return;
+  if (sidecar || asked !== "rust") rustSidecar(env);
+  else console.error("OVIS_PTY_SIDECAR=rust: this PC has no Node for the PTY sidecar, so panes are mirrored; the Rust host is used only where the Node sidecar could run");
+}
+
 /** This runtime's answer is taken once: every caller (attach, /api/health, /api/bridge) gets the same one. */
 export function sidecarAvailable(runtime?: SidecarRuntime): boolean {
   if (runtime) return runtime.pty() && runtime.node();
   if (known === null) {
     known = here.pty() && here.node();
-    // the Rust host's check (and any word on OVIS_PTY_SIDECAR) comes at startup, not at the first attach
-    const asked = process.env["OVIS_PTY_SIDECAR"];
-    if (asked && asked !== "node" && process.platform !== "win32") {
-      if (known) rustSidecar();
-      else if (asked === "rust") console.error("OVIS_PTY_SIDECAR=rust: this PC has no Node for the PTY sidecar, so panes are mirrored; the Rust host is used only where the Node sidecar could run");
-    }
+    announcePtyHost(known);
   }
   return known;
 }
