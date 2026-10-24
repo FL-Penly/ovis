@@ -321,12 +321,12 @@ describe("raw NUL bytes", () => {
     });
   });
 
-  it.skipIf(process.platform === "win32")("fails closed on a tracked name that is not valid UTF-8", () => {
+  it("fails closed on a tracked name that is not valid UTF-8", () => {
     withRepo({}, {}, (root, env) => {
-      const name = Buffer.concat([Buffer.from(join(root, "src/x")), Buffer.from([0xff]), Buffer.from(".md")]);
-      mkdirSync(join(root, "src"));
-      writeFileSync(name, "a\0");
-      expect(spawnSync("git", ["add", "src"], { cwd: root, env }).status).toBe(0);
+      // in the index only: macOS and Windows refuse such a name on disk, and the scan reports it before looking there
+      const blob = spawnSync("git", ["hash-object", "-w", "--stdin"], { cwd: root, env, input: "a\0", encoding: "utf8" }).stdout.trim();
+      const entry = Buffer.concat([Buffer.from(`100644 ${blob}\tsrc/x`), Buffer.from([0xff]), Buffer.from(".md\n")]);
+      expect(spawnSync("git", ["update-index", "--add", "--index-info"], { cwd: root, env, input: entry }).status).toBe(0);
       expect(scanNul(root, env)).toEqual({ scanned: 0, offenders: ["\"src/x\uFFFD.md\": path is not valid UTF-8, so it cannot be read"] });
     });
   });
