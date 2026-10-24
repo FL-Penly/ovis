@@ -113,6 +113,19 @@ async function check(browser: Browser, origin: string, width: 390 | 1440, theme:
         return own(input, init);
       }) as typeof window.fetch;
     });
+    if (!phone) {
+      // the palette over the diff keeps Ctrl/Cmd+F and its typing: Find stays closed underneath
+      const palette = page.locator(".command-palette input");
+      await page.keyboard.press("ControlOrMeta+Shift+K");
+      await palette.waitFor();
+      await page.keyboard.press("ControlOrMeta+f");
+      await page.keyboard.type("amount");
+      assert.equal(await palette.inputValue(), "amount", `${label}: the palette keeps what was typed`);
+      assert.equal(await query.count(), 0, `${label}: Find stays closed under the palette`);
+      await page.keyboard.press("Escape");
+      await palette.waitFor({ state: "detached" });
+      await page.locator(".repo-diff-viewer").waitFor();
+    }
     if (phone) await findButton.tap();
     else await page.keyboard.press("ControlOrMeta+f");
     await query.waitFor();

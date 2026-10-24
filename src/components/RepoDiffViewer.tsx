@@ -158,6 +158,10 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
       if (event.isComposing || event.keyCode === 229 || nativeModalOver(surface.current)) return;
       // Ctrl/Cmd+F is this dialog's: the browser's own find cannot reach the rows not mounted
       if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
+        // a dialog above the viewer (the palette) keeps its own keys while it has the focus
+        const focused = document.activeElement;
+        const owner = focused instanceof Element && surface.current?.contains(focused) !== true ? focused.closest("dialog, [aria-modal='true']") : null;
+        if (owner !== null && surface.current !== null && !owner.contains(surface.current)) return;
         event.preventDefault();
         if (patchText !== null || findingRef.current) openFind();
         return;
