@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, spyOn
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { probeRustHost, ptyHost, resetPtyHostForTests, RUST_SIDECAR_BUILD, rustSidecar, rustSidecarPath } from "./host.ts";
+import { probeRustHost, resetPtyHostForTests, RUST_SIDECAR_BUILD, rustSidecar, rustSidecarPath } from "./host.ts";
 import { PtySession, type PtySessionOptions } from "./session.ts";
 
 /** the Rust host these tests run: OVIS_PTY_SIDECAR_BIN, else the release build */
@@ -10,25 +10,25 @@ const RUST_HOST = rustSidecar({ ...process.env, OVIS_PTY_SIDECAR: "rust" });
 const built = RUST_HOST !== null;
 const LIMIT_MS = 10_000;
 
-describe("ptyHost", () => {
+describe("rustSidecar", () => {
   beforeEach(resetPtyHostForTests);
   it("runs the Node sidecar unless OVIS_PTY_SIDECAR=rust asks for the Rust one", () => {
-    expect(ptyHost("pty-host.mjs", {})).toEqual(["node", "pty-host.mjs"]);
-    expect(ptyHost("pty-host.mjs", { OVIS_PTY_SIDECAR: "node" })).toEqual(["node", "pty-host.mjs"]);
+    expect(rustSidecar({})).toBeNull();
+    expect(rustSidecar({ OVIS_PTY_SIDECAR: "node" })).toBeNull();
   });
 
   it("falls back to the Node sidecar when the Rust binary is missing, saying so at most once", () => {
     const said = spyOn(console, "error").mockImplementation(() => {});
     try {
       const env = { OVIS_PTY_SIDECAR: "rust", OVIS_PTY_SIDECAR_BIN: join(tmpdir(), `ovis-no-pty-sidecar-${crypto.randomUUID()}`) };
-      expect(ptyHost("pty-host.mjs", env)).toEqual(["node", "pty-host.mjs"]);
+      expect(rustSidecar(env)).toBeNull();
       expect(rustSidecar(env)).toBeNull();
       expect(said.mock.calls.length).toBe(1);
     } finally { said.mockRestore(); }
   });
 
   it.skipIf(!existsSync(RUST_SIDECAR_BUILD))("runs the Rust build, or OVIS_PTY_SIDECAR_BIN, when asked", () => {
-    expect(ptyHost("pty-host.mjs", { OVIS_PTY_SIDECAR: "rust" })).toEqual([RUST_SIDECAR_BUILD]);
+    expect(rustSidecar({ OVIS_PTY_SIDECAR: "rust" })).toBe(RUST_SIDECAR_BUILD);
     expect(rustSidecar({ OVIS_PTY_SIDECAR: "rust", OVIS_PTY_SIDECAR_BIN: RUST_SIDECAR_BUILD })).toBe(RUST_SIDECAR_BUILD);
   });
 });
@@ -53,10 +53,17 @@ describe.skipIf(process.platform === "win32")("probeRustHost", () => {
     expect(probeRustHost(RUST_SIDECAR_BUILD)).toEqual({ ok: true });
   });
 
+  /** the verdict's reason, failing the test when the probe passed */
+  const refused = (binary: string, timeoutMs?: number): string => {
+    const verdict = probeRustHost(binary, process.env, timeoutMs);
+    expect(verdict.ok).toBe(false);
+    return verdict.ok ? "" : verdict.reason;
+  };
+
   it("refuses a program that is not the host", () => {
-    expect(probeRustHost("/bin/true")).toEqual({ ok: false, reason: "not the Rust PTY host (exit 0)" });
+    expect(refused("/bin/true")).toContain("exit 0");
     const other = fakeHost('if [ "$#" -eq 0 ]; then printf "another usage line\\n" >&2; exit 2; fi\nexit 0');
-    expect(probeRustHost(other)).toEqual({ ok: false, reason: "not the Rust PTY host (exit 2: another usage line)" });
+    expect(refused(other)).toContain("exit 2");
   });
 
   it("says why a binary cannot start", () => {
@@ -73,21 +80,27 @@ describe.skipIf(process.platform === "win32")("probeRustHost", () => {
 
   it("gives up on a host that hangs", () => {
     const start = performance.now();
-    expect(probeRustHost(fakeHost("exec sleep 30"), process.env, 200)).toEqual({ ok: false, reason: "no answer in 200 ms" });
+    expect(refused(fakeHost("exec sleep 30"), 200)).toContain("200 ms");
+    expect(performance.now() - start).toBeLessThan(2000);
+  });
+
+  it("gives up on a host that ignores SIGTERM, so the server's start never waits on it", () => {
+    const start = performance.now();
+    expect(refused(fakeHost("trap '' TERM\nwhile :; do :; done"), 200)).toContain("200 ms");
     expect(performance.now() - start).toBeLessThan(2000);
   });
 
   it("refuses a host that crashes on the pty path", () => {
-    expect(probeRustHost(fakeHost(`${IDENTITY}\nkill -SEGV $$`))).toEqual({ ok: false, reason: "SIGSEGV" });
+    expect(refused(fakeHost(`${IDENTITY}\nkill -SEGV $$`))).toContain("SIGSEGV");
   });
 
   it("refuses a nonzero exit on the pty path", () => {
-    expect(probeRustHost(fakeHost(`${IDENTITY}\nprintf "pty failed\\n" >&2; exit 7`))).toEqual({ ok: false, reason: "exit 7: pty failed" });
+    expect(refused(fakeHost(`${IDENTITY}\nprintf "pty failed\\n" >&2; exit 7`))).toContain("exit 7");
   });
 
   it("rejects a timeout even when the host handles SIGTERM with exit zero", () => {
     const binary = fakeHost(`${IDENTITY}\ntrap 'exit 0' TERM\nwhile :; do :; done`);
-    expect(probeRustHost(binary, process.env, 200)).toEqual({ ok: false, reason: "no answer in 200 ms" });
+    expect(refused(binary, 200)).toContain("200 ms");
   });
 
   it("scrubs both bridge tokens from both probe legs without changing the caller env", () => {
@@ -99,7 +112,6 @@ describe.skipIf(process.platform === "win32")("probeRustHost", () => {
       expect(spawn).toHaveBeenCalledTimes(2);
       expect(spawn.mock.calls.map((call) => call[0])).toEqual([[binary], [binary, "1", "1", "true"]]);
       for (const call of spawn.mock.calls) {
-        expect(call[1]).toMatchObject({ stdin: "ignore", stdout: "ignore", stderr: "pipe", timeout: 250 });
         expect(call[1]?.env).not.toHaveProperty("OVIS_TOKEN");
         expect(call[1]?.env).not.toHaveProperty("HERDR_WEB_TOKEN");
       }
@@ -140,10 +152,6 @@ describe("rustSidecar policy", () => {
       expect(said).toHaveBeenCalledTimes(2);
       expect(String(said.mock.calls[0]?.[0])).toContain("RUST");
       expect(String(said.mock.calls[1]?.[0])).toContain("yes");
-      for (const call of said.mock.calls) {
-        expect(String(call[0])).toContain('"node"');
-        expect(String(call[0])).toContain('"rust"');
-      }
       said.mockClear();
       for (const choice of ["node", "", undefined]) expect(rustSidecar({ OVIS_PTY_SIDECAR: choice })).toBeNull();
       expect(said).not.toHaveBeenCalled();

@@ -11,10 +11,17 @@ const verdicts = new Map<string, RustHostVerdict>();
 const said = new Set<string>();
 let disabled = false;
 
-function warn(message: string): void {
+/** Says `message` once per process: a warning (or log line) about the host, never one per attach. */
+function once(message: string, print: (message: string) => void = console.error): void {
   if (said.has(message)) return;
   said.add(message);
-  console.error(message);
+  print(message);
+}
+
+/** Why a spawn threw: its errno code (ENOENT, EACCES, ENOEXEC) when it has one. */
+export function spawnErrorReason(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  return "code" in error && error.code != null ? String(error.code) : error.message;
 }
 
 /** The configured binary, expanding only a leading home-directory shorthand. */
@@ -24,7 +31,11 @@ export function rustSidecarPath(env: Record<string, string | undefined> = proces
   return binary.startsWith("~/") ? join(home, binary.slice(2)) : binary;
 }
 
-/** Checks the host's identity and its PTY path before it is allowed to serve attachments. */
+/**
+ * Checks the host's identity and its PTY path before it is allowed to serve attachments, in at most
+ * 2 x timeoutMs: a run past its time is killed with SIGKILL, since the host (or a binary posing as it)
+ * may outlive SIGTERM, and the server's start waits on this check.
+ */
 export function probeRustHost(binary: string, env: Record<string, string | undefined> = process.env, timeoutMs = 3000): RustHostVerdict {
   const clean = { ...env };
   delete clean["OVIS_TOKEN"];
@@ -33,7 +44,7 @@ export function probeRustHost(binary: string, env: Record<string, string | undef
   try {
     for (const identity of [true, false]) {
       const result = Bun.spawnSync(identity ? [binary] : [binary, "1", "1", "true"], {
-        env: clean, stdin: "ignore", stdout: "ignore", stderr: "pipe", timeout: timeoutMs,
+        env: clean, stdin: "ignore", stdout: "ignore", stderr: "pipe", timeout: timeoutMs, killSignal: "SIGKILL",
       });
       if (result.exitedDueToTimeout) return { ok: false, reason: `no answer in ${timeoutMs} ms` };
       if (result.signalCode != null) return { ok: false, reason: result.signalCode };
@@ -44,10 +55,7 @@ export function probeRustHost(binary: string, env: Record<string, string | undef
     }
     return { ok: true };
   } catch (error) {
-    const reason = error instanceof Error
-      ? ("code" in error && error.code != null ? String(error.code) : error.message)
-      : String(error);
-    return { ok: false, reason };
+    return { ok: false, reason: spawnErrorReason(error) };
   }
 }
 
@@ -60,7 +68,7 @@ export function rustSidecar(env: Record<string, string | undefined> = process.en
   const choice = env["OVIS_PTY_SIDECAR"];
   if (!choice || choice === "node") return null;
   if (choice !== "rust") {
-    warn(`OVIS_PTY_SIDECAR=${choice}: expected "node" or "rust"; using the Node PTY sidecar`);
+    once(`OVIS_PTY_SIDECAR=${choice}: expected "node" or "rust"; using the Node PTY sidecar`);
     return null;
   }
   if (disabled) return null;
@@ -71,14 +79,10 @@ export function rustSidecar(env: Record<string, string | undefined> = process.en
     verdicts.set(binary, verdict);
   }
   if (!verdict.ok) {
-    warn(`OVIS_PTY_SIDECAR=rust: ${binary}: ${verdict.reason}; using the Node PTY sidecar (build it with cargo build --release --manifest-path crates/pty-sidecar/Cargo.toml, or set OVIS_PTY_SIDECAR_BIN to the built binary's absolute path: an update installed from the app runs from ~/.config/ovis/updates, where the default path does not exist)`);
+    once(`OVIS_PTY_SIDECAR=rust: ${binary}: ${verdict.reason}; using the Node PTY sidecar (build it with cargo build --release --manifest-path crates/pty-sidecar/Cargo.toml, or set OVIS_PTY_SIDECAR_BIN to the built binary's absolute path: an update installed from the app runs from ~/.config/ovis/updates, where the default path does not exist)`);
     return null;
   }
-  const message = `PTY host: Rust (${binary})`;
-  if (!said.has(message)) {
-    said.add(message);
-    console.log(message);
-  }
+  once(`PTY host: Rust (${binary})`, console.log);
   return binary;
 }
 
@@ -86,7 +90,7 @@ export function rustSidecar(env: Record<string, string | undefined> = process.en
 export function disableRustHost(reason: string): void {
   if (disabled) return;
   disabled = true;
-  warn(`OVIS_PTY_SIDECAR=rust: ${reason}; using the Node PTY sidecar until this server restarts`);
+  once(`OVIS_PTY_SIDECAR=rust: ${reason}; using the Node PTY sidecar until this server restarts`);
 }
 
 /** Forgets cached verdicts, the disable and what was said. Tests only. */
@@ -94,10 +98,4 @@ export function resetPtyHostForTests(): void {
   verdicts.clear();
   said.clear();
   disabled = false;
-}
-
-/** The PTY host's command before its own arguments: the Rust host when asked for and built, else `node <script>`. */
-export function ptyHost(nodeScript: string, env: Record<string, string | undefined> = process.env): string[] {
-  const rust = rustSidecar(env);
-  return rust ? [rust] : ["node", nodeScript];
 }

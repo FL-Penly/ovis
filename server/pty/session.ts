@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { disableRustHost, rustSidecar } from "./host.ts";
+import { disableRustHost, rustSidecar, spawnErrorReason } from "./host.ts";
 
 const HOST_SCRIPT = join(import.meta.dir, "pty-host.mjs");
 
@@ -53,10 +53,7 @@ export class PtySession {
       } catch (error) {
         this.proc = Bun.spawn(["node", HOST_SCRIPT, ...args], spawnOptions);
         this.host = "node";
-        const reason = error instanceof Error
-          ? ("code" in error && error.code != null ? String(error.code) : error.message)
-          : String(error);
-        disableRustHost(`${rust} could not be started (${reason})`);
+        disableRustHost(`${rust} could not be started (${spawnErrorReason(error)})`);
       }
     } else {
       this.proc = Bun.spawn(["node", HOST_SCRIPT, ...args], spawnOptions);

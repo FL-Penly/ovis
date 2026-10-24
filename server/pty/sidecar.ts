@@ -57,9 +57,11 @@ export function sidecarAvailable(runtime?: SidecarRuntime): boolean {
   if (runtime) return runtime.pty() && runtime.node();
   if (known === null) {
     known = here.pty() && here.node();
-    if (process.env["OVIS_PTY_SIDECAR"] === "rust") {
+    // the Rust host's check (and any word on OVIS_PTY_SIDECAR) comes at startup, not at the first attach
+    const asked = process.env["OVIS_PTY_SIDECAR"];
+    if (asked && asked !== "node" && process.platform !== "win32") {
       if (known) rustSidecar();
-      else console.error("OVIS_PTY_SIDECAR=rust: this PC has no Node for the PTY sidecar, so panes are mirrored; the Rust host is used only where the Node sidecar could run");
+      else if (asked === "rust") console.error("OVIS_PTY_SIDECAR=rust: this PC has no Node for the PTY sidecar, so panes are mirrored; the Rust host is used only where the Node sidecar could run");
     }
   }
   return known;
