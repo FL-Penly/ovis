@@ -4,9 +4,8 @@ Everything for the first App Store release of the iOS app that does not need the
 login: what the project already sets, the clicks in Apple's sites, the listing, the privacy and
 age answers, and the review notes. Screenshots are in `app/store/ios/`.
 
-Build 1 had no push notifications. Build 2, the one submitted for review, has them (the APNs key
-is the relay's, and the Notification Service Extension decrypts), so the App Privacy answers
-below include its push token.
+The first release has no push notifications (they need an APNs key and the Notification Service
+Extension, a later build; see [Later builds](#later-builds)).
 
 ## 1. What the project sets
 
@@ -125,14 +124,13 @@ data from this app.** Then declare:
 | Data type | Use | Linked to the user | Tracking |
 |---|---|---|---|
 | Usage Data > Product Interaction (the settings chosen in the app, and daily use) | Analytics | Yes | No |
-| Identifiers > Device ID (the random install ID the PC makes; the APNs push token the push relay keeps once alerts are on) | Analytics (install ID); App Functionality (push token) | Yes | No |
+| Identifiers > Device ID (the random install ID the PC makes) | Analytics | Yes | No |
 | Location > Coarse Location (the country, two letters) | Analytics | Yes | No |
 
 They count as linked: Apple's definition covers data tied to a device-level identifier, and the
 receiver stores them with the PC's persistent install ID (random, with no account, name or contact
 behind it). None is used for tracking: nothing is combined with other companies' data or shared
-with data brokers or advertisers. The privacy manifest lists the same three types (its Device ID
-entry still names Analytics only; a build after 2 adds App Functionality), and
+with data brokers or advertisers. The privacy manifest lists the same three types, and
 `https://ovis.sh/privacy/` describes the same route. Privacy policy URL:
 `https://ovis.sh/privacy/`.
 
@@ -172,14 +170,15 @@ refuse addresses that are not an Ovis server, which is an app change, not a form
 - [ ] Build selected on the version page > Add for Review > Submit
 
 Apple may ask about guideline 4.2 (an app that is "mostly a website"): the answer is the native
-connect screen, QR pairing, the bundled demo, and push notifications (in this version, through the Notification Service Extension).
+connect screen, QR pairing, the bundled demo, and push notifications in a coming version.
 
 ## Later builds
 
-- **Push (APNs)**, from build 2: the relay's APNs auth key, the Push Notifications capability on
-  `sh.ovis.app`, and the Notification Service Extension target. The device's push token goes to
-  the push relay (section 5). `PrivacyInfo.xcprivacy` should add App Functionality to its Device
-  ID entry in the next build.
+- **Push (APNs)**: an APNs auth key (developer.apple.com > Keys > + > Apple Push Notifications
+  service) for the relay, the Push Notifications capability on `sh.ovis.app`, and the
+  Notification Service Extension target. The App Privacy answer changes then: the device's push
+  token goes to the push relay ("Device ID", app functionality, linked, as the relay keeps it per
+  device, not tracking), and so does the privacy manifest.
 - Every upload: raise `CURRENT_PROJECT_VERSION`; raise `MARKETING_VERSION` for each public
   release. Both are the project's build settings, so the app and its extension keep one version
   ([docs/native-app.md](../../docs/native-app.md#the-app-app)).
