@@ -13,6 +13,9 @@ describe("navMove", () => {
     expect(navMove(key("ArrowLeft", { metaKey: true }), true)).toBe("tab-previous");
     expect(navMove(key("ArrowRight", { metaKey: true }), true)).toBe("tab-next");
     expect(navMove(key("t", { metaKey: true }, "KeyT"), true)).toBe("terminal-tab");
+    expect(navMove(key("w", { metaKey: true }, "KeyW"), true)).toBe("close-tab");
+    expect(navMove(key("w", { ctrlKey: true, altKey: true }, "KeyW"), false)).toBe("close-tab");
+    expect(navMove(key("w", { metaKey: true, shiftKey: true }, "KeyW"), true)).toBeNull();
   });
 
   it("leaves upstream's ⌘⇧ arrows, plain arrows and Ctrl+arrows alone", () => {

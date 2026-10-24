@@ -1,19 +1,20 @@
 /**
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): herdr-style moves between workspaces and tabs.
  * ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the previous / next
- * tab of the open workspace, and ⌘T opens a terminal tab in it (Ctrl+Alt in place of ⌘ off a Mac,
- * where Ctrl+arrows move by word). Both steps wrap around. In a text field with text the arrows stay
- * the field's (⌘← is the start of the line there); an empty field and the terminal give them up.
- * A browser tab keeps ⌘T for itself: it reaches the page in the installed app.
+ * tab of the open workspace, ⌘T opens a terminal tab in it and ⌘W closes the open tab (Ctrl+Alt in
+ * place of ⌘ off a Mac, where Ctrl+arrows move by word). Both steps wrap around. In a text field with
+ * text the arrows stay the field's (⌘← is the start of the line there); an empty field and the
+ * terminal give them up. A browser tab keeps ⌘T and ⌘W for itself: they reach the page in the
+ * installed app.
  */
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { PaneInfo, SessionSnapshot } from "../../shared/protocol.ts";
 import type { AppActions } from "./actions.ts";
 import { rosterPanes } from "./dagPane.ts";
 import { lastViewedPane, rememberViewedPane } from "./lastViewedPane.ts";
 import { isMacPlatform, keepsKeyForText } from "./shortcuts.ts";
 
-export type NavMove = "workspace-previous" | "workspace-next" | "tab-previous" | "tab-next" | "terminal-tab";
+export type NavMove = "workspace-previous" | "workspace-next" | "tab-previous" | "tab-next" | "terminal-tab" | "close-tab";
 
 export function navMove(event: Pick<KeyboardEvent, "key" | "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing">, mac: boolean): NavMove | null {
   if (event.isComposing || event.shiftKey) return null;
@@ -25,7 +26,29 @@ export function navMove(event: Pick<KeyboardEvent, "key" | "code" | "metaKey" | 
     case "ArrowLeft": return "tab-previous";
     case "ArrowRight": return "tab-next";
   }
-  return event.code === "KeyT" ? "terminal-tab" : null;
+  return event.code === "KeyT" ? "terminal-tab" : event.code === "KeyW" ? "close-tab" : null;
+}
+
+/** ⌘W's request: the tab strip showing this PC's tab closes it as its own close button would. */
+const CLOSE_TAB_EVENT = "ovis:close-tab";
+type CloseTabDetail = { machineId: string; tabId: string };
+
+/**
+ * For TabStrip: set `.current` to a close of the tab named (true when the strip holds it). Split
+ * halves each have a strip; the first that holds the tab takes the request.
+ */
+export function useCloseTabKey(machineId: string): MutableRefObject<((tabId: string) => boolean) | null> {
+  const close = useRef<((tabId: string) => boolean) | null>(null);
+  useEffect(() => {
+    const onClose = (event: Event): void => {
+      const detail = (event as CustomEvent<CloseTabDetail>).detail;
+      if (event.defaultPrevented || detail.machineId !== machineId) return;
+      if (close.current?.(detail.tabId)) event.preventDefault();
+    };
+    window.addEventListener(CLOSE_TAB_EVENT, onClose);
+    return () => window.removeEventListener(CLOSE_TAB_EVENT, onClose);
+  }, [machineId]);
+  return close;
 }
 
 /** The pane a workspace or tab opens on: the one last viewed there, else the one in front, else its first. */
@@ -38,7 +61,7 @@ function frontPane(panes: readonly PaneInfo[], viewed: string | undefined, focus
  * The pane a move lands on, or null when there is nowhere to go. `workspaces` is the order the
  * sidebar shows; the open pane's own workspace counts even when the sidebar would leave it out.
  */
-export function navTarget(snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null, workspaces: readonly string[], move: Exclude<NavMove, "terminal-tab">): string | null {
+export function navTarget(snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null, workspaces: readonly string[], move: Exclude<NavMove, "terminal-tab" | "close-tab">): string | null {
   const panes = rosterPanes(snapshot.panes, selectedPaneId);
   const selected = panes.find((pane) => pane.pane_id === selectedPaneId);
   const focusedIn = (tabId: string | undefined) => snapshot.layouts?.find((layout) => layout.tab_id === tabId)?.focused_pane_id;
@@ -78,10 +101,15 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
       // the app's alone: neither the browser (⌘← is Back) nor the terminal gets it
       event.preventDefault();
       event.stopPropagation();
-      if (event.repeat && move === "terminal-tab") return;
+      if (event.repeat && (move === "terminal-tab" || move === "close-tab")) return;
       if (move === "terminal-tab") { void actions.openTerminalTab().catch(() => { /* herdr refused: nothing opens */ }); return; }
       const roster = snapshot.current;
       if (!roster) return;
+      if (move === "close-tab") {
+        const tabId = roster.panes.find((pane) => pane.pane_id === selectedPaneId)?.tab_id;
+        if (tabId) window.dispatchEvent(new CustomEvent<CloseTabDetail>(CLOSE_TAB_EVENT, { detail: { machineId, tabId }, cancelable: true }));
+        return;
+      }
       const target = navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move);
       if (target !== null) actions.selectPane(target);
     };
