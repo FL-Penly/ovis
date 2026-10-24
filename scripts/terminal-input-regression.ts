@@ -655,8 +655,8 @@ async function checkCanonicalSubmit(browser: Browser): Promise<void> {
       const bytes = () => readFileSync(log, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as string).join("");
       const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
       await context.addInitScript((pane) => {
-        localStorage.setItem("herdr-web-ui:settings", JSON.stringify({ language: "en", terminalInputMode: "line" }));
-        localStorage.setItem(`herdr-web-ui:view:${pane}`, "terminal");
+        localStorage.setItem("ovis:settings", JSON.stringify({ language: "en", terminalInputMode: "line" }));
+        localStorage.setItem(`ovis:view:${pane}`, "terminal");
       }, pane);
       const page = await context.newPage();
       const errors: string[] = [];

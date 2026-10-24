@@ -485,8 +485,8 @@ try {
         await measure("offline");
         // the terminal's input line, itself unchanged: the same framing, and the same refusal kept under the line
         await page.evaluate(() => {
-          const settings = JSON.parse(localStorage.getItem("herdr-web-ui:settings") ?? "{}");
-          localStorage.setItem("herdr-web-ui:settings", JSON.stringify({ ...settings, terminalInputMode: "line" }));
+          const settings = JSON.parse(localStorage.getItem("ovis:settings") ?? "{}");
+          localStorage.setItem("ovis:settings", JSON.stringify({ ...settings, terminalInputMode: "line" }));
         });
         await page.goto(`${url}&view=terminal`);
         await page.locator(".conn-live").waitFor({ state: "attached" });
