@@ -32,6 +32,10 @@ enum PCStore {
     /// Why the last load failed, for the error page.
     static var failure: String?
 
+    /// Whether the next view controller starts on the error page instead of the PC: a PC that did
+    /// not open in time. In memory only; the next view controller takes it.
+    static var startOnError = false
+
     static func remember(_ origin: String) {
         saved = [origin] + saved.filter { $0 != origin }
     }
@@ -60,14 +64,20 @@ class HerdrBridgeViewController: CAPBridgeViewController {
     private var openingView: UIView?
     /// Gives up on a PC that has not answered, instead of WebKit's own wait of a minute or more.
     private var answerTimeout: DispatchWorkItem?
-    /// The reason to show once the load the timeout stopped has ended.
-    private var timedOut: String?
+    /// This one shows the error page for the current PC instead of opening it (PCStore.startOnError).
+    private lazy var onError: Bool = {
+        defer { PCStore.startOnError = false }
+        return PCStore.startOnError && PCStore.current != nil
+    }()
     /// How long a PC may take to answer the first request.
     private static let answerSeconds = 20
 
     override func instanceDescriptor() -> InstanceDescriptor {
         let descriptor = super.instanceDescriptor()
-        if let origin = PCStore.current, let host = URL(string: origin)?.host {
+        if onError {
+            // the bundled error page as the first page, which loads like the connect screen does
+            descriptor.appStartPath = "error.html"
+        } else if let origin = PCStore.current, let host = URL(string: origin)?.host {
             // what server.url sets; the pairing link until a PC page has loaded, the origin after it
             descriptor.serverURL = PCStore.pendingStart ?? origin + "/"
             // the whole PC is the app: its own links stay in the WebView, others go to Safari
@@ -94,19 +104,12 @@ class HerdrBridgeViewController: CAPBridgeViewController {
 
     override func viewDidLoad() {
         // before super, which starts the first load
-        if let webView = webView, PCStore.current != nil {
+        if let webView = webView, PCStore.current != nil, !onError {
             let proxy = NavigationFailureProxy(inner: webView.navigationDelegate) { [weak self] webView, reason in
                 self?.showFailure(in: webView, reason: reason)
             }
             proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
             proxy.onLoaded = { [weak self] in self?.hideOpening() }
-            proxy.onCancelled = { [weak self] webView in
-                // the stopped load has ended; loading the error page while it was still ending let
-                // WebKit drop the error page too, leaving the cover up
-                guard let self, let reason = self.timedOut else { return }
-                self.timedOut = nil
-                DispatchQueue.main.async { self.showFailure(in: webView, reason: reason) }
-            }
             // a first page that broke off after it started: the error page rather than a cover with no
             // way on; a later page that breaks off is left as it was
             proxy.onPageFailed = { [weak self] webView, reason in
@@ -117,28 +120,26 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             webView.navigationDelegate = proxy
         }
         super.viewDidLoad()
-        if let webView = webView, let origin = PCStore.current {
+        if let origin = PCStore.current, !onError {
             showOpening(origin)
-            let timeout = DispatchWorkItem { [weak self, weak webView] in
-                guard let self, let webView else { return }
+            let timeout = DispatchWorkItem { [weak self] in
+                // only while this one is still the app's screen for that PC (not after Change PC)
+                guard let self, self.view.window != nil, PCStore.current == origin else { return }
                 let host = URL(string: origin)?.host ?? origin
-                let reason = Self.korean
+                PCStore.failure = Self.korean
                     ? "\(host)이(가) \(Self.answerSeconds)초 안에 열리지 않았습니다."
                     : "\(host) did not open within \(Self.answerSeconds) seconds."
-                // the error page follows once the stopped load reports that it was cancelled
-                // (onCancelled), or after a second if it never does
-                self.timedOut = reason
-                webView.stopLoading()
-                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, weak webView] in
-                    guard let self, let webView, let reason = self.timedOut else { return }
-                    self.timedOut = nil
-                    self.showFailure(in: webView, reason: reason)
-                }
+                // a fresh view controller on the error page: loading it into this web view after
+                // stopping the PC's first load left WebKit stuck with the cover up
+                PCStore.startOnError = true
+                HerdrBridgeViewController.reopen()
             }
             answerTimeout = timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.answerSeconds), execute: timeout)
         }
     }
+
+    deinit { answerTimeout?.cancel() }
 
     private static var korean: Bool { Locale.preferredLanguages.first?.lowercased().hasPrefix("ko") ?? false }
 
@@ -217,8 +218,6 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     var onLoaded: (() -> Void)?
     /// A page broke off after it started loading, with the reason, or nil when that was on purpose.
     var onPageFailed: ((WKWebView, String?) -> Void)?
-    /// The first page's load ended as cancelled or handed off on purpose.
-    var onCancelled: ((WKWebView) -> Void)?
 
     /// Whether a failed load was cancelled or handed off on purpose: a new navigation, WebKit's
     /// "frame load interrupted" (102) or "plug-in handled load" (204).
@@ -268,7 +267,7 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         inner?.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
-        if Self.onPurpose(error) { onCancelled?(webView) } else { onFailure(webView, error.localizedDescription) }
+        if !Self.onPurpose(error) { onFailure(webView, error.localizedDescription) }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
