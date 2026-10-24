@@ -540,7 +540,7 @@ all attached when the release is created, so no tag is seen without them. `bun
 scripts/pty-sidecar.ts install` (herdr's plugin build, each update installed from the app, and
 `install.sh`) puts the binary for its PC in `bin/ovis-pty-sidecar` only when the release's crate
 tree matches the checkout and the SHA-256 matches; otherwise that install runs the Node sidecar.
-A release without them gets them from **Actions → Rust PTY host binaries** with its tag. Then it
+A release without them gets them from **Actions → Attach the Rust PTY host** with its tag. Then it
 attaches the signed Ovis for Mac `Ovis.dmg` to the release, or skips that with a notice while the
 signing secrets are unset ([app/mac/README.md](../app/mac/README.md#releases)); the release becomes
 GitHub's latest only once it has that DMG. A red `mac-dmg` job leaves the release published: run

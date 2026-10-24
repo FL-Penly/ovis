@@ -55,10 +55,16 @@ function command(argv: string[], timeout = 600_000): string {
   return result.stdout.toString().trim();
 }
 
-/** The crate's git tree id in this checkout, or null outside a git checkout. */
-export function crateTree(cwd = root): string | null {
-  const result = Bun.spawnSync(["git", "rev-parse", `HEAD:${CRATE}`], { cwd, stdout: "pipe", stderr: "ignore" });
-  return result.exitCode === 0 ? result.stdout.toString().trim() : null;
+/**
+ * The crate's git tree id in this checkout, or why there is none to trust: outside a git checkout, or
+ * when its sources differ from HEAD (edited, staged or untracked files; target/ is ignored).
+ */
+export function crateTree(cwd = root): { tree: string } | { error: string } {
+  const tree = Bun.spawnSync(["git", "rev-parse", `HEAD:${CRATE}`], { cwd, stdout: "pipe", stderr: "ignore" });
+  if (tree.exitCode !== 0) return { error: "not a git checkout, so the release's host cannot be matched to these sources" };
+  const status = Bun.spawnSync(["git", "status", "--porcelain", "--untracked-files=all", "--", CRATE], { cwd, stdout: "pipe", stderr: "ignore" });
+  if (status.exitCode !== 0 || status.stdout.toString().trim() !== "") return { error: `${CRATE} has changes that are not committed, so a release's host would not be built from them` };
+  return { tree: tree.stdout.toString().trim() };
 }
 
 /** Whether `path` is the Rust PTY host and runs on this PC: with no arguments it prints its usage and exits 2. */
@@ -101,6 +107,7 @@ function build(asset: string, out: string): void {
     command(["lipo", "-create", "-output", file, ...built]);
     // each slice keeps the linker's ad-hoc signature; one over the whole file is what Apple silicon checks
     command(["codesign", "--force", "--sign", "-", file]);
+    command(["codesign", "--verify", "--strict", "--all-architectures", file]);
   } else {
     writeFileSync(file, readFileSync(built[0]!));
   }
@@ -113,8 +120,9 @@ function build(asset: string, out: string): void {
 }
 
 function manifest(dir: string): void {
-  const crate = crateTree();
-  if (!crate) throw new Error(`${CRATE} has no git tree here`);
+  const sources = crateTree();
+  if ("error" in sources) throw new Error(sources.error);
+  const crate = sources.tree;
   const assets: Manifest["assets"] = {};
   const sums: string[] = [];
   for (const asset of Object.keys(ASSETS)) {
@@ -131,47 +139,99 @@ function manifest(dir: string): void {
   console.log(JSON.stringify(result, null, 2));
 }
 
-async function download(url: string): Promise<Uint8Array> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+/** the whole install, both downloads and the checks, stays inside the updater's 120 s for the step */
+const INSTALL_DEADLINE_MS = 90_000;
+
+async function download(url: string, signal: AbortSignal): Promise<Uint8Array> {
+  const response = await fetch(url, { signal });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   return new Uint8Array(await response.arrayBuffer());
 }
 
-/** What `install` did, in one line; `ok` false when this checkout has no Rust host from it. */
+const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** What was verified of the installed host, kept beside it: only a host that matches its record survives a failed install. */
+interface Installed { crate: string; sha256: string }
+const recordOf = (target: string) => `${target}.json`;
+
+function verifiedFor(target: string, crate: string): boolean {
+  try {
+    const record = JSON.parse(readFileSync(recordOf(target), "utf8")) as Installed;
+    return record.crate === crate && sha256(readFileSync(target)) === record.sha256;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What `install` did, in one line; `ok` false when this checkout has no Rust host from a release.
+ * It never throws. When it fails, a host already in place stays only when it is the one verified
+ * for these very sources; any other is removed, so the server never runs a host it would not install.
+ */
 export async function install(options: { releases?: string; target?: string; platform?: string } = {}): Promise<{ ok: boolean; message: string }> {
-  const platform = options.platform ?? `${process.platform}-${process.arch}`;
   const target = options.target ?? INSTALLED;
+  const sources = crateTree();
+  let result: { ok: boolean; message: string };
+  try {
+    result = "error" in sources ? { ok: false, message: sources.error } : await attempt(sources.tree, target, options);
+  } catch (error) {
+    result = { ok: false, message: `could not install the Rust PTY host (${message(error)})` };
+  }
+  if (!result.ok && existsSync(target) && !("tree" in sources && verifiedFor(target, sources.tree))) {
+    try {
+      rmSync(target, { force: true });
+      rmSync(recordOf(target), { force: true });
+      result.message += `; removed the unverified ${target}`;
+    } catch (error) {
+      result.message += `; could not remove the unverified ${target} (${message(error)})`;
+    }
+  }
+  return result;
+}
+
+async function attempt(crate: string, target: string, options: { releases?: string; platform?: string }): Promise<{ ok: boolean; message: string }> {
+  const platform = options.platform ?? `${process.platform}-${process.arch}`;
   const asset = PLATFORM_ASSET[platform];
   if (!asset) return { ok: false, message: `no Rust PTY host for ${platform}` };
-  const crate = crateTree();
-  if (!crate) return { ok: false, message: "not a git checkout, so the release's host cannot be matched to these sources" };
   const version = packageVersion();
-  const base = `${(options.releases ?? process.env["OVIS_PTY_SIDECAR_RELEASES"] ?? RELEASES).replace(/\/$/, "")}/v${version}`;
-  let found: Manifest;
+  const base = `${(options.releases ?? RELEASES).replace(/\/$/, "")}/v${version}`;
+  const signal = AbortSignal.timeout(INSTALL_DEADLINE_MS);
+  let found: unknown;
   try {
-    found = JSON.parse(new TextDecoder().decode(await download(`${base}/${MANIFEST}`))) as Manifest;
+    found = JSON.parse(new TextDecoder().decode(await download(`${base}/${MANIFEST}`, signal)));
   } catch (error) {
-    return { ok: false, message: `release v${version} has no Rust PTY host (${error instanceof Error ? error.message : String(error)})` };
+    return { ok: false, message: `release v${version} has no Rust PTY host (${message(error)})` };
   }
-  if (found.crate !== crate) return { ok: false, message: `release v${version}'s host was built from other ${CRATE} sources than this checkout's` };
-  const entry = found.assets?.[platform];
-  if (!entry || !/^[0-9a-f]{64}$/.test(entry.sha256) || entry.file !== `${NAME}-${asset}`) return { ok: false, message: `release v${version}'s manifest names no host for ${platform}` };
-  if (existsSync(target) && sha256(readFileSync(target)) === entry.sha256 && runsHere(target)) return { ok: true, message: `Rust PTY host v${version} already installed at ${target}` };
+  if (!isObject(found) || found["version"] !== version || typeof found["crate"] !== "string" || !isObject(found["assets"])) {
+    return { ok: false, message: `release v${version}'s ${MANIFEST} is not a manifest for v${version}` };
+  }
+  if (found["crate"] !== crate) return { ok: false, message: `release v${version}'s host was built from other ${CRATE} sources than this checkout's` };
+  const entry = found["assets"][platform];
+  if (!isObject(entry) || typeof entry["sha256"] !== "string" || !/^[0-9a-f]{64}$/.test(entry["sha256"]) || entry["file"] !== `${NAME}-${asset}`) {
+    return { ok: false, message: `release v${version}'s manifest names no host for ${platform}` };
+  }
+  const expected = entry["sha256"];
+  const file = entry["file"];
+  if (verifiedFor(target, crate) && sha256(readFileSync(target)) === expected && runsHere(target)) return { ok: true, message: `Rust PTY host v${version} already installed at ${target}` };
   let bytes: Uint8Array;
   try {
-    bytes = await download(`${base}/${entry.file}`);
+    bytes = await download(`${base}/${file}`, signal);
   } catch (error) {
-    return { ok: false, message: `could not download ${entry.file} (${error instanceof Error ? error.message : String(error)})` };
+    return { ok: false, message: `could not download ${file} (${message(error)})` };
   }
   const digest = sha256(bytes);
-  if (digest !== entry.sha256) return { ok: false, message: `${entry.file} does not match its SHA-256 in release v${version}'s manifest (got ${digest}); nothing was installed` };
+  if (digest !== expected) return { ok: false, message: `${file} does not match its SHA-256 in release v${version}'s manifest (got ${digest}); nothing was installed` };
   mkdirSync(join(target, ".."), { recursive: true });
   const temporary = `${target}.${process.pid}.tmp`;
   try {
-    writeFileSync(temporary, bytes, { mode: 0o755 });
+    writeFileSync(temporary, bytes, { mode: 0o755, flag: "wx" });
     chmodSync(temporary, 0o755);
-    if (!runsHere(temporary)) return { ok: false, message: `${entry.file} does not run on this PC; nothing was installed` };
+    if (!runsHere(temporary)) return { ok: false, message: `${file} does not run on this PC; nothing was installed` };
+    // the record goes first: a host in place without one is removed by the next failed install, never trusted
+    rmSync(recordOf(target), { force: true });
     renameSync(temporary, target);
+    writeFileSync(recordOf(target), `${JSON.stringify({ crate, sha256: digest } satisfies Installed)}\n`);
   } finally {
     rmSync(temporary, { force: true });
   }

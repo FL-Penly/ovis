@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { architectures, crateTree, expectedArchitectures, install, type Manifest } from "./pty-sidecar.ts";
@@ -14,10 +14,12 @@ describe("install", () => {
   const files = new Map<string, string>();
   let server: ReturnType<typeof Bun.serve>;
   let releases = "";
+  const sources = crateTree();
+  const tree = "tree" in sources ? sources.tree : "";
   const publish = (binary: string, manifest: Partial<Manifest> = {}) => {
     files.set(`/v${version}/ovis-pty-sidecar-linux-x64`, binary);
     files.set(`/v${version}/ovis-pty-sidecar.json`, JSON.stringify({
-      version, crate: crateTree(), assets: { "linux-x64": { file: "ovis-pty-sidecar-linux-x64", sha256: sha256(HOST) } }, ...manifest,
+      version, crate: tree, assets: { "linux-x64": { file: "ovis-pty-sidecar-linux-x64", sha256: sha256(HOST) } }, ...manifest,
     }));
   };
   beforeAll(() => {
@@ -69,10 +71,62 @@ describe("install", () => {
     expect(existsSync(path)).toBe(false);
   });
 
+  it("removes a host in place that a failed install cannot vouch for, and keeps the verified one", async () => {
+    publish(HOST);
+    const path = target();
+    expect((await install({ releases, target: path, platform: "linux-x64" })).ok).toBe(true);
+    files.clear();
+    const offline = await install({ releases, target: path, platform: "linux-x64" });
+    expect(offline.ok).toBe(false);
+    expect(readFileSync(path, "utf8")).toBe(HOST);
+    writeFileSync(path, `${HOST}# replaced\n`);
+    const stale = await install({ releases, target: path, platform: "linux-x64" });
+    expect(stale.message).toContain("removed the unverified");
+    expect(existsSync(path)).toBe(false);
+    expect(existsSync(`${path}.json`)).toBe(false);
+  });
+
+  it("refuses a manifest that is not one for this version, without throwing", async () => {
+    for (const body of ["null", "[]", JSON.stringify({ version: "0.0.0", crate: tree, assets: {} }), JSON.stringify({ version, crate: tree, assets: { "linux-x64": null } })]) {
+      files.set(`/v${version}/ovis-pty-sidecar.json`, body);
+      const result = await install({ releases, target: target(), platform: "linux-x64" });
+      expect(result.ok).toBe(false);
+    }
+  });
+
+  it("turns a filesystem failure into a failed result instead of throwing", async () => {
+    publish(HOST);
+    const blocked = join(dir, crypto.randomUUID());
+    writeFileSync(blocked, "a file where the directory would go");
+    const result = await install({ releases, target: join(blocked, "ovis-pty-sidecar"), platform: "linux-x64" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("could not install");
+  });
+
   it("says so when the release has no host, or the platform has none", async () => {
     files.clear();
     expect((await install({ releases, target: target(), platform: "linux-x64" })).message).toContain("HTTP 404");
     expect((await install({ releases, target: target(), platform: "win32-x64" })).message).toContain("no Rust PTY host for win32-x64");
+  });
+});
+
+describe("crateTree", () => {
+  it("refuses crate sources that differ from HEAD", () => {
+    const repo = mkdtempSync(join(tmpdir(), "ovis-pty-sidecar-git-"));
+    try {
+      const git = (...args: string[]) => expect(Bun.spawnSync(["git", "-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo }).exitCode).toBe(0);
+      git("init", "-q");
+      mkdirSync(join(repo, "crates/pty-sidecar/src"), { recursive: true });
+      writeFileSync(join(repo, "crates/pty-sidecar/src/main.rs"), "fn main() {}\n");
+      git("add", ".");
+      git("commit", "-qm", "crate");
+      expect("tree" in crateTree(repo)).toBe(true);
+      writeFileSync(join(repo, "crates/pty-sidecar/src/main.rs"), "fn main() { loop {} }\n");
+      expect(crateTree(repo)).toEqual({ error: expect.stringContaining("not committed") });
+      git("checkout", "-q", "--", ".");
+      writeFileSync(join(repo, "crates/pty-sidecar/src/extra.rs"), "");
+      expect(crateTree(repo)).toEqual({ error: expect.stringContaining("not committed") });
+    } finally { rmSync(repo, { recursive: true, force: true }); }
   });
 });
 

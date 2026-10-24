@@ -4,7 +4,8 @@ name: Rust PTY host binaries
 # for macOS, plus ovis-pty-sidecar.json (version, the crate's git tree, SHA-256 per platform) and
 # SHA256SUMS. scripts/pty-sidecar.ts install fetches them by package.json's version.
 # Release calls this before it publishes and attaches the files to the release it creates, so a
-# tag never exists without them. Run it by hand to attach them to a release that has none.
+# tag never exists without them. pty-sidecar-attach.yml runs it by hand for a release that has none.
+# It only reads: a called workflow keeps its caller's event and may not ask for more permissions.
 # A pull request touching the host or the PTY code runs the same builds, cargo test, and on Linux
 # the PtySession checks on the built binary.
 on:
@@ -20,16 +21,10 @@ on:
         description: 'Commit to build'
         required: true
         type: string
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Published release to attach the Rust PTY host to (vX.Y.Z)'
-        required: true
-        type: string
 permissions:
   contents: read
 concurrency:
-  group: pty-sidecar-${{ github.event_name }}-${{ inputs.tag || inputs.ref || github.ref }}
+  group: pty-sidecar-${{ github.workflow }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   build:
@@ -46,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || inputs.ref || github.sha }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
@@ -86,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || inputs.ref || github.sha }}
+          ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
@@ -102,31 +97,3 @@ jobs:
           name: ovis-pty-sidecar
           path: pty-sidecar/*
           if-no-files-found: error
-  attach:
-    if: github.event_name == 'workflow_dispatch'
-    needs: manifest
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: ovis-pty-sidecar
-          path: pty-sidecar
-      - name: Attach the Rust PTY host to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.tag }}
-        run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::'$RELEASE_TAG' is not a release tag (vX.Y.Z)." >&2
-            exit 1
-          fi
-          version=$(jq -r .version pty-sidecar/ovis-pty-sidecar.json)
-          if [ "v$version" != "$RELEASE_TAG" ]; then
-            echo "::error::$RELEASE_TAG's package.json says $version." >&2
-            exit 1
-          fi
-          gh release upload "$RELEASE_TAG" pty-sidecar/* --clobber

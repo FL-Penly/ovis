@@ -38,7 +38,7 @@ describe("ptyHost", () => {
 
   it.skipIf(!existsSync(defaultRustSidecar()))("runs the installed host or the Rust build, or OVIS_PTY_SIDECAR_BIN, when asked", () => {
     expect(ptyHost("pty-host.mjs", { OVIS_PTY_SIDECAR: "rust" })).toEqual([defaultRustSidecar()]);
-    expect(rustSidecar({ OVIS_PTY_SIDECAR: "rust", OVIS_PTY_SIDECAR_BIN: RUST_SIDECAR_BUILD })).toBe(RUST_SIDECAR_BUILD);
+    expect(rustSidecar({ OVIS_PTY_SIDECAR: "rust", OVIS_PTY_SIDECAR_BIN: defaultRustSidecar() })).toBe(defaultRustSidecar());
   });
 });
 
