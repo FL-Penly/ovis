@@ -2,7 +2,8 @@ name: CI
 on:
   pull_request:
     # ready_for_review: a draft run skips the heavy checks, so leaving draft must run them.
-    types: [opened, synchronize, reopened, ready_for_review]
+    # edited: a changed title is checked again (the squash merge turns it into the commit).
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
   workflow_dispatch:
@@ -34,6 +35,37 @@ jobs:
       draft: ${{ steps.filter.outputs.draft }}
       linux: ${{ steps.route.outputs.linux }}
     steps:
+      # The squash merge makes the title the commit: CONTRIBUTING.md's `type(scope): summary`.
+      # The title is read from the event payload as data and never printed, so it cannot run or
+      # write workflow commands.
+      - name: Check the pull request title
+        if: github.event_name == 'pull_request'
+        shell: node {0}
+        run: |
+          const fs = require("fs");
+          if (process.env.GITHUB_EVENT_NAME !== "pull_request") {
+            console.log("Not a pull request: no title to check.");
+            process.exit(0);
+          }
+          const fail = (reason) => {
+            console.log(`::error title=Pull request title::The title must read type(scope): summary, for example fix(chat): keep the finished turn finished after Send. ${reason}`);
+            process.exit(1);
+          };
+          let title;
+          try {
+            title = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8")).pull_request?.title;
+          } catch {
+            fail("The event payload could not be read.");
+          }
+          if (typeof title !== "string") fail("The event payload has no pull request title.");
+          if (/[\u0000-\u001f\u007f\u2028\u2029]/u.test(title)) fail("It must be one line without control characters.");
+          if (title !== title.trim()) fail("It must not start or end with whitespace.");
+          const match = /^([a-z][a-z0-9-]*)\(([^()]*)\): (.*)$/u.exec(title);
+          if (!match) fail("It needs a lowercase type, a scope in parentheses, then a colon and one space.");
+          const [, , scope, summary] = match;
+          if (scope.trim() === "" || scope !== scope.trim()) fail("The scope must be nonempty, without surrounding whitespace.");
+          if (summary.trim() === "" || summary !== summary.trim()) fail("The summary must be nonempty and follow exactly one space.");
+          console.log("The title matches type(scope): summary.");
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
