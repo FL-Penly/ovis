@@ -16,6 +16,19 @@ modes and steps the agent there with its own Shift+Tab (a mode the session turns
 the list); Shift+Tab in the message box steps once. Either way the key goes only while its input box
 is on screen. The model and effort label is a button: it sends `/model`, whose picker Ovis shows as a card.
 
+**herdr-web's sidebar.** On top, Start a session and **Waiting on you** (its count; it narrows the list to
+agents with an open question or an answer not seen yet). Under Sessions, every workspace is a group head (fold,
+branch, a + that opens a terminal tab at once, and while folded the dot of the agent that most asks for a look) over its agents, each
+with herdr-web's state dot, its mark and its title; plain terminals join their workspaces when the list's
+terminal switch is on, one button folds or unfolds them all, and another (on by default) hides the workspaces
+that run no agent, such as agent-board's Board and Wake. A lone PC's header is not drawn. Right-click
+(or ⋯) on a pane copies its ID, name, a dispatch command or dispatch instructions (as herdr-web's), renames
+or closes it, and a group head offers a terminal tab, an agent tab through upstream's New tab dialog, earlier sessions
+and rename. It replaces the
+workspace list and the Agents list; the footer's layout button switches back to upstream's (kept per browser),
+which keeps the rest of workspace management (worktrees, reorder, pins). Upstream's browser regression scripts
+(`scripts/*-regression.ts`) assume that classic layout.
+
 **A Codex chat beside its fork.** A fork holds every answer of the conversation it was cut from, so a Codex
 pane's chat could not tell its own conversation from the fork's (and showed the terminal), most of all once
 the original was backtracked to the fork point. A rollout another pane was started on with
@@ -29,11 +42,13 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/lib/agentMode.ts` (+ test, `fixtures-agent-mode/`) | Reads the mode from the visible screen; ported from herdr-web with its screen fixtures. |
 | `src/components/ModeChip.tsx` (+ css) | The chip. It reads the screen and sends the key through upstream's `pane/read` and `pane/keys` routes, so remote PCs get it too. |
 | `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
+| `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
 `server/pane-routes.ts` (2 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
+`src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). `git diff upstream/main...main` shows the whole patch.
 
