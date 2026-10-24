@@ -17,7 +17,10 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Manual mode": "手動モード",
   "YOLO mode": "YOLO モード",
   "Default mode": "デフォルトモード",
-  "Mode: {mode}. Press or Shift+Tab for the next one": "モード: {mode}。押すか Shift+Tab で次へ",
   "Close what is open in the terminal first": "先にターミナルで開いているダイアログやメニューを閉じてください",
   "Couldn't switch the mode": "モードを切り替えられませんでした",
+  "Switch mode": "モードを切り替え",
+  "Switching the mode…": "モードを切り替え中…",
+  "Mode: {mode}. Press to pick another, or Shift+Tab for the next one": "モード: {mode}。押して選ぶか、Shift+Tab で次へ",
+  "This session does not offer {mode}": "このセッションには「{mode}」がありません",
 };

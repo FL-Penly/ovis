@@ -11,8 +11,9 @@ with Copy and the time). Its menu starts the session as it stood at the end of t
 the original session's flags and environment; the original keeps running.
 
 **Mode chip, and a model label that switches.** Under the message box of a Claude Code or Codex pane a chip
-shows the agent's mode (bypass permissions, plan, accept edits, …, read from its own footer); a press or
-Shift+Tab in the message box sends the agent Shift+Tab, its key for the next mode, but only while its input box
+shows the agent's mode (bypass permissions, plan, accept edits, …, read from its own footer). A press lists the
+modes and steps the agent there with its own Shift+Tab (a mode the session turns out not to cycle through leaves
+the list); Shift+Tab in the message box steps once. Either way the key goes only while its input box
 is on screen. The model and effort label is a button: it sends `/model`, whose picker Ovis shows as a card.
 
 | File | What it holds |

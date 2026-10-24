@@ -17,7 +17,10 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Manual mode": "수동 모드",
   "YOLO mode": "YOLO 모드",
   "Default mode": "기본 모드",
-  "Mode: {mode}. Press or Shift+Tab for the next one": "모드: {mode}. 누르거나 Shift+Tab으로 다음 모드",
   "Close what is open in the terminal first": "먼저 터미널에 열린 대화상자나 메뉴를 닫으세요",
   "Couldn't switch the mode": "모드를 전환하지 못했습니다",
+  "Switch mode": "모드 전환",
+  "Switching the mode…": "모드 전환 중…",
+  "Mode: {mode}. Press to pick another, or Shift+Tab for the next one": "모드: {mode}. 눌러서 고르거나 Shift+Tab으로 다음 모드",
+  "This session does not offer {mode}": "이 세션에는 「{mode}」가 없습니다",
 };

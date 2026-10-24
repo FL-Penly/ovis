@@ -48,3 +48,18 @@
   font: inherit;
   cursor: pointer;
 }
+
+.composer-mode-chip.is-stepping {
+  opacity: 0.7;
+}
+
+/* why a switch did not happen, readable on a phone too, where a tooltip never shows */
+.composer-mode-note {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--danger-text);
+  font-size: var(--fs-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
