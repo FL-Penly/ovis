@@ -65,7 +65,7 @@ keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab   #
 | Field | Now | Rule |
 |---|---|---|
 | `applicationId` | `sh.ovis.app` | never changes once uploaded |
-| `versionCode` | `1` | raise it by one for every upload, test tracks included (`defaultConfig` in `app/android/app/build.gradle`) |
+| `versionCode` | `2` (1.0 (2), the first build with push, built with `OVIS_GOOGLE_SERVICES`; 1.0 (1) had no FCM) | raise it by one for every upload, test tracks included (`defaultConfig` in `app/android/app/build.gradle`) |
 | `versionName` | `1.0` | what people see; raise it for each public release |
 | `targetSdkVersion` | 36 | Play asks new apps for a recent target |
 
