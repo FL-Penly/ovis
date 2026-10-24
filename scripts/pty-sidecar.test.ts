@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -92,6 +92,15 @@ describe("install", () => {
       const result = await install({ releases, target: target(), platform: "linux-x64" });
       expect(result.ok).toBe(false);
     }
+  });
+
+  it("turns a PC without git into a failed result instead of throwing", async () => {
+    const spawn = spyOn(Bun, "spawnSync").mockImplementation(() => { throw Object.assign(new Error("Executable not found in $PATH: \"git\""), { code: "ENOENT" }); });
+    try {
+      const result = await install({ releases, target: target(), platform: "linux-x64" });
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain("git");
+    } finally { spawn.mockRestore(); }
   });
 
   it("turns a filesystem failure into a failed result instead of throwing", async () => {

@@ -171,9 +171,10 @@ function verifiedFor(target: string, crate: string): boolean {
  */
 export async function install(options: { releases?: string; target?: string; platform?: string } = {}): Promise<{ ok: boolean; message: string }> {
   const target = options.target ?? INSTALLED;
-  const sources = crateTree();
+  let sources: ReturnType<typeof crateTree> = { error: "the crate sources could not be read" };
   let result: { ok: boolean; message: string };
   try {
+    sources = crateTree();
     result = "error" in sources ? { ok: false, message: sources.error } : await attempt(sources.tree, target, options);
   } catch (error) {
     result = { ok: false, message: `could not install the Rust PTY host (${message(error)})` };
