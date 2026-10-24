@@ -10,7 +10,7 @@ import { useEffect, type RefObject } from "react";
 import type { PaneInfo, SessionSnapshot } from "../../shared/protocol.ts";
 import type { AppActions } from "./actions.ts";
 import { rosterPanes } from "./dagPane.ts";
-import { lastViewedPane } from "./lastViewedPane.ts";
+import { lastViewedPane, rememberViewedPane } from "./lastViewedPane.ts";
 import { isMacPlatform, keepsKeyForText } from "./shortcuts.ts";
 
 export type NavMove = "workspace-previous" | "workspace-next" | "tab-previous" | "tab-next" | "terminal-tab";
@@ -64,6 +64,11 @@ export function navTarget(snapshot: SessionSnapshot, machineId: string, selected
 
 export function useNavShortcuts(actions: AppActions, snapshot: RefObject<SessionSnapshot | null>, machineId: string, selectedPaneId: string | null,
   sidebarWorkspaces: (snapshot: SessionSnapshot, selectedPaneId: string | null) => string[], enabled: boolean): void {
+  // a step back to a workspace lands where it was left: upstream's classic sidebar remembers this, the tree does not
+  useEffect(() => {
+    const pane = snapshot.current?.panes.find((candidate) => candidate.pane_id === selectedPaneId);
+    if (pane) rememberViewedPane("workspace", machineId, pane.workspace_id, pane.pane_id);
+  }, [snapshot, machineId, selectedPaneId]);
   useEffect(() => {
     if (!enabled) return;
     const mac = isMacPlatform();
