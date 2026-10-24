@@ -58,4 +58,5 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Dispatch command copied": "已复制派活命令",
   "Dispatch instructions copied: paste them into another session": "已复制派活说明，贴给另一个会话就行",
   "Couldn't copy: the browser refused the clipboard": "复制失败：浏览器不允许访问剪贴板",
+  "Back to this message": "回到这条消息",
 };

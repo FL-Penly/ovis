@@ -58,4 +58,5 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Dispatch command copied": "依頼コマンドをコピーしました",
   "Dispatch instructions copied: paste them into another session": "依頼手順をコピーしました。別のセッションに貼り付けてください",
   "Couldn't copy: the browser refused the clipboard": "コピーできません: ブラウザーがクリップボードを拒否しました",
+  "Back to this message": "このメッセージに戻る",
 };
