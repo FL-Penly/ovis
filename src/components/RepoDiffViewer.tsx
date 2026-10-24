@@ -134,6 +134,8 @@ export function RepoDiffViewer({ target, onClose, onOpenFile, keyboardActive = t
     const focused = document.activeElement;
     // Ctrl/Cmd+F again on an open bar only refocuses the query: the control that first opened it keeps the return
     if (!findingRef.current || findOpener.current?.isConnected !== true) findOpener.current = focused instanceof HTMLElement && focused !== findInput.current ? focused : findButton.current;
+    // the copy fallback's text stands in for the diff: Find goes back to the rows it marks
+    setShown(null);
     setFinding(true);
     setFindRequest((request) => request + 1);
   }, []);
