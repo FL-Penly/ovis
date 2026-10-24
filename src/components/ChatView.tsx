@@ -86,6 +86,7 @@ import { chatIsBlank, type ChatRead } from "../lib/greeting.ts";
 import { TurnTime } from "./TurnTime.tsx";
 import { useT } from "../lib/i18n.ts";
 import { ForkButton } from "./ForkButton.tsx"; // downstream: DOWNSTREAM.md
+import { StickyPrompt } from "./StickyPrompt.tsx"; // downstream: DOWNSTREAM.md
 import { offersRetry, userFailure, type UserFailure } from "../lib/userError.ts";
 import { useAnnouncedText } from "../lib/useAnnouncedText.ts";
 
@@ -1881,6 +1882,7 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
       </div>
     </div>}
     {state.source === "conversation" && <ChatMinimap turns={minimap} rowKeys={rowKeys} scroller={scroller} onJump={jumpToTurn} />}
+    {state.source === "conversation" && <StickyPrompt turns={minimap} rowKeys={rowKeys} scroller={scroller} onJump={jumpToTurn} />}{/* downstream */}
     {jump}
     </div>
     </div>
