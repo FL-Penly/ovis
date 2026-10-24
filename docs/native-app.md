@@ -201,8 +201,9 @@ What is there:
   PC's whole host stay in the app and shows `error.html` when the first load fails. Until the
   PC's page has loaded, a native cover says which PC is opening and offers Change PC; a PC that
   sends no answer within 20 seconds counts as failed (WebKit alone waits a minute or more, which
-  is what a phone with Tailscale off or disconnected sees for a `.ts.net` address). For a
-  Tailscale address, `error.html` adds that Tailscale must be connected on the phone. The
+  is what a phone with Tailscale off or disconnected sees for a `.ts.net` address). When a
+  Tailscale address sent no answer, `error.html` (on Android too) adds that Tailscale may be off
+  on the phone. The
   `HerdrShell` plugin (`HerdrShellPlugin.swift`) opens, forgets and leaves PCs. Opening or
   leaving one builds a fresh view controller, so the next page is again a first load, and the old
   one goes with its web view. `@capacitor/barcode-scanner` kept every old one alive (its scanner

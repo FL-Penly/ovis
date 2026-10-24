@@ -98,6 +98,12 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             }
             proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
             proxy.onLoaded = { [weak self] in self?.hideOpening() }
+            // a first page that broke off after it started: the error page rather than a cover with no
+            // way on; a later page that breaks off is left as it was
+            proxy.onPageFailed = { [weak self] webView, reason in
+                guard let self else { return }
+                if self.openingView != nil, let reason { self.showFailure(in: webView, reason: reason) } else { self.hideOpening() }
+            }
             failureProxy = proxy
             webView.navigationDelegate = proxy
         }
@@ -110,8 +116,8 @@ class HerdrBridgeViewController: CAPBridgeViewController {
                 webView.stopLoading()
                 let host = URL(string: origin)?.host ?? origin
                 self.showFailure(in: webView, reason: Self.korean
-                    ? "\(host)이(가) \(Self.answerSeconds)초 안에 응답하지 않았습니다."
-                    : "\(host) did not answer within \(Self.answerSeconds) seconds.")
+                    ? "\(host)이(가) \(Self.answerSeconds)초 안에 열리지 않았습니다."
+                    : "\(host) did not open within \(Self.answerSeconds) seconds.")
             }
             answerTimeout = timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.answerSeconds), execute: timeout)
@@ -193,6 +199,16 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     var onAnswer: (() -> Void)?
     /// A page (the PC's or the error page) finished loading.
     var onLoaded: (() -> Void)?
+    /// A page broke off after it started loading, with the reason, or nil when that was on purpose.
+    var onPageFailed: ((WKWebView, String?) -> Void)?
+
+    /// Whether a failed load was cancelled or handed off on purpose: a new navigation, WebKit's
+    /// "frame load interrupted" (102) or "plug-in handled load" (204).
+    private static func onPurpose(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return true }
+        return nsError.domain == "WebKitErrorDomain" && (nsError.code == 102 || nsError.code == 204)
+    }
 
     init(inner: WKNavigationDelegate?, onFailure: @escaping (WKWebView, String) -> Void) {
         self.inner = inner
@@ -234,10 +250,11 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         inner?.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
-        let nsError = error as NSError
-        let cancelled = nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled
-        // WebKit's "frame load interrupted" (102) and "plug-in handled load" (204)
-        let handedOff = nsError.domain == "WebKitErrorDomain" && (nsError.code == 102 || nsError.code == 204)
-        if !cancelled && !handedOff { onFailure(webView, error.localizedDescription) }
+        if !Self.onPurpose(error) { onFailure(webView, error.localizedDescription) }
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        inner?.webView?(webView, didFail: navigation, withError: error)
+        onPageFailed?(webView, Self.onPurpose(error) ? nil : error.localizedDescription)
     }
 }
