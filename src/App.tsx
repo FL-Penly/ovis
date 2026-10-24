@@ -84,6 +84,7 @@ import { useLinkLanding, useMachineGone, useNotificationTargets, useSelectedLayo
 import { useAddressBar } from "./lib/useAddressBar.ts";
 import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
 import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
+import { GitPanel, GitPanelButton } from "./components/GitPanel.tsx"; // downstream
 
 const APP_TITLE = "Ovis";
 /** how soon after a key press a focus counts as the user's own (lastKeyAtRef) */
@@ -447,6 +448,7 @@ export function App() {
 
   useShortcuts(actions, locked === false);
   useNavShortcuts(actions, snapshotRef, selectedMachineId, selectedPaneId, sidebarWorkspaceIds, locked === false); // downstream
+  const [gitOpen, setGitOpen] = useState(false); // downstream
 
   // The header's More menu: what used to be three buttons of its own. Each item is there under
   // the condition its button had. At phone width the palette's button gives its room to the
@@ -595,6 +597,7 @@ export function App() {
             <button type="button" className="icon-button header-files-button" aria-label={t("Browse files")} title={t("Browse files")} onClick={() => setFilesOpen(true)}>
               <FolderOpen />
             </button>
+            {selectedMachineId === "local" && <GitPanelButton open={gitOpen} onToggle={() => setGitOpen((open) => !open)} />}{/* downstream */}
           </>
         )}
         <div className="header-meta">
@@ -824,6 +827,8 @@ export function App() {
         </MachineContext.Provider>}
         {webPage !== null && filePanelAvailable && !(viewing !== null && fileDocked) &&
           <WebPanel key={webPage} url={webPage} onClose={() => setWebPage(null)} panelStart={<FilePanelResizer width={filePanelWidth} onResize={setFilePanelWidth} />} />}
+        {gitOpen && selectedPane && selectedMachineId === "local" && <GitPanel key={selectedPane.pane_id} paneId={selectedPane.pane_id} directory={selectedPane.foreground_cwd ?? selectedPane.cwd ?? null} onClose={() => setGitOpen(false)}
+          onOpenDiff={(request) => openDiff({ machineId: selectedMachineId, paneId: selectedPane.pane_id, directory: selectedPane.foreground_cwd ?? selectedPane.cwd ?? null, ...request })} />}{/* downstream */}
       </div>
 
       <MachineContext.Provider value={newSessionMachineId}><NewSessionDialog
