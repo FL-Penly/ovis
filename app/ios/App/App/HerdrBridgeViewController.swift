@@ -56,6 +56,12 @@ enum PCStore {
 /// (docs/native-app.md, Spike results), so opening a PC builds a new one of these.
 class HerdrBridgeViewController: CAPBridgeViewController {
     private var failureProxy: NavigationFailureProxy?
+    /// Covers the web view, which stays blank until the PC's page has loaded.
+    private var openingView: UIView?
+    /// Gives up on a PC that has not answered, instead of WebKit's own wait of a minute or more.
+    private var answerTimeout: DispatchWorkItem?
+    /// How long a PC may take to answer the first request.
+    private static let answerSeconds = 20
 
     override func instanceDescriptor() -> InstanceDescriptor {
         let descriptor = super.instanceDescriptor()
@@ -90,14 +96,79 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             let proxy = NavigationFailureProxy(inner: webView.navigationDelegate) { [weak self] webView, reason in
                 self?.showFailure(in: webView, reason: reason)
             }
+            proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
+            proxy.onLoaded = { [weak self] in self?.hideOpening() }
             failureProxy = proxy
             webView.navigationDelegate = proxy
         }
         super.viewDidLoad()
+        if let webView = webView, let origin = PCStore.current {
+            showOpening(origin)
+            let timeout = DispatchWorkItem { [weak self, weak webView] in
+                guard let self, let webView else { return }
+                // stopping ends the load as cancelled, which the proxy does not report again
+                webView.stopLoading()
+                let host = URL(string: origin)?.host ?? origin
+                self.showFailure(in: webView, reason: Self.korean
+                    ? "\(host)이(가) \(Self.answerSeconds)초 안에 응답하지 않았습니다."
+                    : "\(host) did not answer within \(Self.answerSeconds) seconds.")
+            }
+            answerTimeout = timeout
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.answerSeconds), execute: timeout)
+        }
+    }
+
+    private static var korean: Bool { Locale.preferredLanguages.first?.lowercased().hasPrefix("ko") ?? false }
+
+    /// What shows while a PC opens: which PC, and Change PC, so a PC that never answers does not
+    /// leave a blank screen.
+    private func showOpening(_ origin: String) {
+        let host = URL(string: origin)?.host ?? origin
+        let cover = UIView(frame: view.bounds)
+        cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        cover.backgroundColor = UIColor(red: 0x12 / 255, green: 0x10 / 255, blue: 0x0e / 255, alpha: 1)
+
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.color = .white
+        spinner.startAnimating()
+        let label = UILabel()
+        label.text = Self.korean ? "\(host) 여는 중…" : "Opening \(host)…"
+        label.textColor = UIColor(white: 0.85, alpha: 1)
+        label.font = .preferredFont(forTextStyle: .body)
+        label.adjustsFontForContentSizeCategory = true
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        let change = UIButton(type: .system, primaryAction: UIAction(title: Self.korean ? "PC 바꾸기" : "Change PC") { _ in
+            PCStore.current = nil
+            HerdrBridgeViewController.reopen()
+        })
+        change.tintColor = .white
+        change.titleLabel?.font = .preferredFont(forTextStyle: .body)
+
+        let stack = UIStackView(arrangedSubviews: [spinner, label, change])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 16
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        cover.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.centerYAnchor.constraint(equalTo: cover.centerYAnchor),
+            stack.leadingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.leadingAnchor, constant: 24),
+            stack.trailingAnchor.constraint(equalTo: cover.safeAreaLayoutGuide.trailingAnchor, constant: -24)
+        ])
+        view.addSubview(cover)
+        openingView = cover
+    }
+
+    private func hideOpening() {
+        answerTimeout?.cancel()
+        openingView?.removeFromSuperview()
+        openingView = nil
     }
 
     private func showFailure(in webView: WKWebView, reason: String) {
         guard let local = bridge?.config.localURL else { return }
+        answerTimeout?.cancel()
         PCStore.failure = reason
         webView.load(URLRequest(url: local.appendingPathComponent("error.html")))
     }
@@ -118,6 +189,10 @@ class HerdrBridgeViewController: CAPBridgeViewController {
 final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     private weak var inner: WKNavigationDelegate?
     private let onFailure: (WKWebView, String) -> Void
+    /// The first page's server answered, with any status.
+    var onAnswer: (() -> Void)?
+    /// A page (the PC's or the error page) finished loading.
+    var onLoaded: (() -> Void)?
 
     init(inner: WKNavigationDelegate?, onFailure: @escaping (WKWebView, String) -> Void) {
         self.inner = inner
@@ -136,6 +211,7 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     /// not a PC worth keeping, and its page would leave the app no way back: the error page shows
     /// instead. Capacitor's delegate does not decide responses; WebKit allows all of them.
     func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        if navigationResponse.isForMainFrame { onAnswer?() }
         guard navigationResponse.isForMainFrame, let response = navigationResponse.response as? HTTPURLResponse,
               response.statusCode >= 400 else {
             decisionHandler(.allow)
@@ -148,6 +224,7 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         inner?.webView?(webView, didFinish: navigation)
+        onLoaded?()
         // the PC's page is up: a pairing link has done its work, and the PC is one worth keeping
         if let url = webView.url, let origin = PCStore.origin(of: url), origin == PCStore.current {
             PCStore.pendingStart = nil
