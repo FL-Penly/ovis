@@ -78,7 +78,7 @@ async function check(browser: Browser, origin: string, width: 390 | 1440, theme:
   const context = await browser.newContext({ viewport: { width, height: phone ? 844 : 900 }, deviceScaleFactor: phone ? 3 : 1, isMobile: phone, hasTouch: phone, colorScheme: theme, locale: language === "ko" ? "ko-KR" : "en-US" });
   try {
     // English to reach the diff by name; a Korean run switches its language once the diff is open (a reload restores it)
-    await context.addInitScript((theme) => { if (localStorage.getItem("herdr-web-ui:settings") === null) localStorage.setItem("herdr-web-ui:settings", JSON.stringify({ language: "en", theme })); }, theme);
+    await context.addInitScript((theme) => { if (localStorage.getItem("ovis:settings") === null) localStorage.setItem("ovis:settings", JSON.stringify({ language: "en", theme })); }, theme);
     const page = await context.newPage();
     page.setDefaultTimeout(20_000);
     const errors: string[] = [];
@@ -87,7 +87,7 @@ async function check(browser: Browser, origin: string, width: 390 | 1440, theme:
     await page.goto(origin);
     await openDiff(page, phone, "src/money.ts");
     if (language === "ko") {
-      await page.evaluate((theme) => localStorage.setItem("herdr-web-ui:settings", JSON.stringify({ language: "ko", theme })), theme);
+      await page.evaluate((theme) => localStorage.setItem("ovis:settings", JSON.stringify({ language: "ko", theme })), theme);
       await page.reload();
       await page.locator(".repo-diff-viewer").waitFor();
     }
