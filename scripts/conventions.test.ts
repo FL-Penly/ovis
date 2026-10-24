@@ -238,7 +238,18 @@ describe("raw NUL bytes", () => {
     }
     const top = realpathSync(root) + sep;
     let scanned = 0;
-    const offenders = [...new Set(listed.stdout.toString("utf8").split("\0").filter(Boolean))].filter(isText).flatMap((path) => {
+    // git lists raw name bytes: a name that is not valid UTF-8 cannot be opened by its decoded name
+    const names: string[] = [];
+    const badNames: string[] = [];
+    for (let start = 0; start < listed.stdout.length;) {
+      const end = listed.stdout.indexOf(0, start);
+      const raw = listed.stdout.subarray(start, end < 0 ? listed.stdout.length : end);
+      start = end < 0 ? listed.stdout.length : end + 1;
+      if (!raw.length) continue;
+      const name = raw.toString("utf8");
+      (Buffer.from(name, "utf8").equals(raw) ? names : badNames).push(name);
+    }
+    const offenders = [...new Set(badNames)].map((name) => `${JSON.stringify(name)}: path is not valid UTF-8, so it cannot be read`).concat([...new Set(names)].filter(isText).flatMap((path) => {
       const file = join(root, path);
       let bytes: Uint8Array;
       try {
@@ -252,7 +263,7 @@ describe("raw NUL bytes", () => {
       scanned += 1;
       const found = nulAt(path, bytes);
       return found ? [found] : [];
-    });
+    }));
     return { scanned, offenders };
   };
 
@@ -291,7 +302,8 @@ describe("raw NUL bytes", () => {
     // "é" and "한" are 2 and 3 bytes, so the NUL is at byte 18 though it is character 15
     expect(nulAt("src/new\nline.ts", Buffer.from("const s = \"é한\";\0\0"))).toBe("\"src/new\\nline.ts\": raw NUL at byte 18");
     expect(nulAt("a.ts", Buffer.from("clean"))).toBeNull();
-    withRepo({ "docs/zero.md": "\0# Title\n", "src/new\nline.ts": "const s = \"é한\";\0\n" }, {}, (root, env) => {
+    // Windows forbids a newline in a file name
+    if (process.platform !== "win32") withRepo({ "docs/zero.md": "\0# Title\n", "src/new\nline.ts": "const s = \"é한\";\0\n" }, {}, (root, env) => {
       expect(scanNul(root, env)).toEqual({ scanned: 2, offenders: ["\"docs/zero.md\": raw NUL at byte 0", "\"src/new\\nline.ts\": raw NUL at byte 18"] });
     });
   });
@@ -309,7 +321,17 @@ describe("raw NUL bytes", () => {
     });
   });
 
-  it("NUL-delimited filenames survive spaces newlines and Unicode", () => {
+  it.skipIf(process.platform === "win32")("fails closed on a tracked name that is not valid UTF-8", () => {
+    withRepo({}, {}, (root, env) => {
+      const name = Buffer.concat([Buffer.from(join(root, "src/x")), Buffer.from([0xff]), Buffer.from(".md")]);
+      mkdirSync(join(root, "src"));
+      writeFileSync(name, "a\0");
+      expect(spawnSync("git", ["add", "src"], { cwd: root, env }).status).toBe(0);
+      expect(scanNul(root, env)).toEqual({ scanned: 0, offenders: ["\"src/x\uFFFD.md\": path is not valid UTF-8, so it cannot be read"] });
+    });
+  });
+
+  it.skipIf(process.platform === "win32")("NUL-delimited filenames survive spaces newlines and Unicode", () => {
     const tracked = { "src/with space.ts": "a\0", "src/two\nlines.ts": "ab\0", "src/日本 語.md": "日\0", "src/conflict.ts": "abcd\0" };
     withRepo(tracked, {}, (root, env) => {
       // an unmerged path is listed once per stage; it is still read and reported once
