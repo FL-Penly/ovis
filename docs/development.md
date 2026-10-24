@@ -600,9 +600,10 @@ delete its remote branch after merging only when dependent work is preserved. Th
 These rules bind the next PR that changes the structure of a store this app owns: a browser record
 (an `ovis:` key in `localStorage`, such as `ovis:settings` or `ovis:themes`) or a bridge document in the
 state directory (`preferences.json`, `devices.json` and the others beside them). Renaming, moving,
-splitting or re-encoding a field, or changing what a stored value means, is structural. Adding a
-setting that older code ignores, or a value an older sanitizer already drops, is not, and needs
-none of this.
+splitting or re-encoding a field, or changing what a stored value means, is structural. So is adding a field to a record an older
+writer rewrites whole: an old tab's next unrelated save writes the record back without the field
+it does not know, and erases it. Only an addition an older writer cannot erase, such as a value
+kept in its own key or document, is not structural and needs none of this.
 
 Most stores carry no schema version today. What follows is what the format-changing PR has to
 bring, not a description of what every store already does. The `revision` in `preferences.json`
