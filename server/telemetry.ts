@@ -167,6 +167,8 @@ export class Telemetry {
     fetch: typeof fetch;
     url?: string;
     activeUrl?: string;
+    /** downstream (DOWNSTREAM.md): a fresh install's sending; this fork's entrypoint passes false */
+    enabledByDefault?: boolean;
     platform?: string;
     arch?: string;
     /** the version the running release replaced, as the supervisor told it; null when none did */
@@ -179,7 +181,7 @@ export class Telemetry {
   }) {
     this.file = join(options.stateDir, FILE);
     const saved = readSaved(this.file);
-    this.saved = saved ?? { install_id: randomUUID(), enabled: true, notice_seen_at: null, notice_version: NOTICE_VERSION, reported_version: null, settings: null, active: [] };
+    this.saved = saved ?? { install_id: randomUUID(), enabled: options.enabledByDefault ?? true, notice_seen_at: null, notice_version: NOTICE_VERSION, reported_version: null, settings: null, active: [] };
     if (!saved) {
       try { this.persist(); } catch (error) {
         // the app still starts; telemetry just stays silent
