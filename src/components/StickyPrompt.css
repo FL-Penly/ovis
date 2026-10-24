@@ -1,0 +1,30 @@
+/* Downstream (FL-Penly/ovis, DOWNSTREAM.md): herdr-web's sticky prompt (StickyPrompt.tsx), after its
+   thread.css, in this app's tokens. Its left and width come from the chat column. */
+.sticky-prompt {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-4);
+  z-index: var(--z-header);
+  display: -webkit-box;
+  width: calc(100% - 2 * var(--space-4));
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-raised, var(--bg-panel));
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (hover: hover) {
+  .sticky-prompt:hover { color: var(--text); border-color: var(--text-dim); }
+}

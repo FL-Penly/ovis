@@ -57,6 +57,7 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Dispatch command copied": "작업 전달 명령을 복사했습니다",
   "Dispatch instructions copied: paste them into another session": "작업 전달 안내를 복사했습니다. 다른 세션에 붙여 넣으세요",
   "Couldn't copy: the browser refused the clipboard": "복사 실패: 브라우저가 클립보드를 거부했습니다",
+  "Back to this message": "이 메시지로 돌아가기",
   "New terminal tab in {name}": "{name}에 새 터미널 탭",
   "Start an agent here…": "여기서 에이전트 시작…",
 };
