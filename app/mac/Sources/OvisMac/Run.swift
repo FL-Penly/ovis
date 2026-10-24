@@ -78,7 +78,8 @@ final class LineCollector: @unchecked Sendable {
 }
 
 /// Runs a program to its end with the PATH above. stdin is empty, so nothing it runs can wait for an answer.
-func run(_ executable: String, _ arguments: [String], env extra: [String: String] = [:], keepStderr: Bool = true, onLine: (@Sendable (String) -> Void)? = nil) async -> RunResult {
+/// With a timeout, a program still running after it is terminated, so a hung check cannot hold the window.
+func run(_ executable: String, _ arguments: [String], env extra: [String: String] = [:], keepStderr: Bool = true, timeout: TimeInterval? = nil, onLine: (@Sendable (String) -> Void)? = nil) async -> RunResult {
     await withCheckedContinuation { continuation in
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
@@ -116,6 +117,11 @@ func run(_ executable: String, _ arguments: [String], env extra: [String: String
         }
         do {
             try process.run()
+            if let timeout {
+                DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
+                    if process.isRunning { process.terminate() }
+                }
+            }
         } catch {
             reader.readabilityHandler = nil
             continuation.resume(returning: RunResult(status: -1, output: error.localizedDescription))

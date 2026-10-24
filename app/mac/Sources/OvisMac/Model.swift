@@ -26,6 +26,8 @@ final class Model: ObservableObject {
     private var pluginRoot: String?
     /// The id the plugin is installed under: an install of an older release keeps the old one.
     private var pluginID = Ovis.pluginID
+    /// What Try again repeats: a Restart that timed out restarts again rather than reinstalling.
+    private var retryRestarts = false
 
     var logText: String { log.joined(separator: "\n") }
 
@@ -42,7 +44,12 @@ final class Model: ObservableObject {
         phase = .installed
     }
 
+    func retry() async {
+        if retryRestarts { await restart() } else { await install() }
+    }
+
     func install() async {
+        retryRestarts = false
         log = []
         phase = .working(L("Downloading the installer…", "설치 프로그램을 받는 중…"))
         let script: URL
@@ -73,6 +80,7 @@ final class Model: ObservableObject {
     }
 
     func restart() async {
+        retryRestarts = true
         phase = .working(L("Restarting…", "다시 시작하는 중…"))
         if await herdrRunning() {
             // the actions' output is in the log already: a failure only names which one stopped
@@ -147,7 +155,7 @@ final class Model: ObservableObject {
 
     /// The plugin's id and root, under its id or, for an install of an older release, the old one.
     private func findPlugin() async -> (id: String, root: String)? {
-        let result = await run(Paths.herdr, ["plugin", "list", "--json"], keepStderr: false)
+        let result = await run(Paths.herdr, ["plugin", "list", "--json"], keepStderr: false, timeout: 10)
         guard result.status == 0,
               let json = try? JSONSerialization.jsonObject(with: Data(result.output.utf8)) as? [String: Any],
               let plugins = (json["result"] as? [String: Any])?["plugins"] as? [[String: Any]]
@@ -162,7 +170,7 @@ final class Model: ObservableObject {
 
     /// `plugin.ts status` knows the port the plugin settled on: "running http://127.0.0.1:7317 (pid 1)" or "down …".
     private func readStatus(root: String) async -> Status {
-        let result = await run(Paths.bun, ["\(root)/scripts/plugin.ts", "status"], keepStderr: false)
+        let result = await run(Paths.bun, ["\(root)/scripts/plugin.ts", "status"], keepStderr: false, timeout: 10)
         let words = (result.output.split(separator: "\n").first ?? "").split(separator: " ")
         var status = Status(running: words.first == "running", origin: words.count > 1 ? URL(string: String(words[1])) : nil)
         guard status.running, let origin = status.origin else { return status }
@@ -179,7 +187,7 @@ final class Model: ObservableObject {
     }
 
     private func herdrRunning() async -> Bool {
-        let result = await run(Paths.herdr, ["status", "server", "--json"], keepStderr: false)
+        let result = await run(Paths.herdr, ["status", "server", "--json"], keepStderr: false, timeout: 10)
         return result.output.contains("\"running\":true")
     }
 
@@ -194,14 +202,16 @@ final class Model: ObservableObject {
             }
             try? await Task.sleep(nanoseconds: 2_000_000_000)
         }
+        // herdr's own output from the login item: what it printed while it started, or failed to
+        let logTail = (try? String(contentsOfFile: "\(Paths.logDir)/herdr-server.log", encoding: .utf8))?
+            .split(separator: "\n").suffix(10).joined(separator: "\n")
         if await findPlugin() == nil {
             fail(L("herdr does not list the Ovis plugin. Try again, or copy the log and get help.",
-                   "herdr에 Ovis 플러그인이 보이지 않습니다. 다시 시도하거나, 오류 내용을 복사해 도움을 받으세요."))
+                   "herdr에 Ovis 플러그인이 보이지 않습니다. 다시 시도하거나, 오류 내용을 복사해 도움을 받으세요."), detail: logTail)
         } else {
             fail(L("The Ovis server did not start within two minutes. Try again, or copy the log and get help.",
                    "Ovis 서버가 2분 안에 시작되지 않았습니다. 다시 시도하거나, 오류 내용을 복사해 도움을 받으세요."),
-                 detail: (try? String(contentsOfFile: "\(Paths.logDir)/herdr-server.log", encoding: .utf8))?
-                    .split(separator: "\n").suffix(10).joined(separator: "\n"))
+                 detail: logTail)
         }
     }
 }
