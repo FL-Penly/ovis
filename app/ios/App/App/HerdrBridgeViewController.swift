@@ -100,12 +100,13 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             let proxy = NavigationFailureProxy(inner: webView.navigationDelegate) { [weak self] webView, reason in
                 self?.showFailure(in: webView, reason: reason)
             }
-            proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
+            // the PC answered: WebKit shows its page from here, as it did before the cover existed
+            proxy.onAnswer = { [weak self] in self?.hideOpening() }
             proxy.onLoaded = { [weak self] in self?.hideOpening() }
             // a first page that broke off after it started: the error page; one cancelled on purpose
-            // leaves the cover up, which the timeout turns into Try again. Only a finished page
-            // takes the cover away: while a PC's connection hangs, WebKit showed error.html
-            // half-loaded, its script not run and its buttons dead.
+            // leaves the cover up, which the timeout turns into Try again. Only the PC's answer or a
+            // finished page takes the cover away: while a PC's connection hangs, WebKit showed
+            // error.html half-loaded, its script not run and its buttons dead.
             proxy.onPageFailed = { [weak self] webView, reason in
                 guard let self, self.openingView != nil, let reason else { return }
                 self.showFailure(in: webView, reason: reason)
@@ -241,7 +242,7 @@ class HerdrBridgeViewController: CAPBridgeViewController {
 final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     private weak var inner: WKNavigationDelegate?
     private let onFailure: (WKWebView, String) -> Void
-    /// The first page's server answered, with any status.
+    /// The PC itself answered the first page (http or https), with any status.
     var onAnswer: (() -> Void)?
     /// A page (the PC's or the error page) finished loading.
     var onLoaded: (() -> Void)?

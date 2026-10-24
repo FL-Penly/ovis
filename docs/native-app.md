@@ -199,7 +199,7 @@ What is there:
 - `app/ios/App/App/HerdrBridgeViewController.swift`: a Capacitor view controller that opens the
   chosen PC as the WebView's first page (`instanceDescriptor().serverURL`). It also lets the
   PC's whole host stay in the app and shows `error.html` when the first load fails. Until the
-  PC's page has loaded, a native cover says which PC is opening and offers Change PC; when a PC
+  PC answers, a native cover says which PC is opening and offers Change PC; when a PC
   sends no answer within 20 seconds, the cover itself says so, with Try again and Change PC, and
   for a Tailscale address that Tailscale may be off on the phone (WebKit alone waits a minute or
   more, which is what a phone with Tailscale off sees for a `.ts.net` address, and while that
