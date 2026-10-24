@@ -1,6 +1,6 @@
 /**
- * Japanese for the keys only the downstream components use: components/ForkButton.tsx and
- * components/ModeChip.tsx (DOWNSTREAM.md).
+ * Japanese for the keys only the downstream components use: components/ForkButton.tsx,
+ * components/ModeChip.tsx and components/TreeSidebar.tsx (DOWNSTREAM.md).
  */
 export const DOWNSTREAM_JA: Record<string, string> = {
   "Forking…": "フォーク中…",
@@ -23,4 +23,14 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Switching the mode…": "モードを切り替え中…",
   "Mode: {mode}. Press to pick another, or Shift+Tab for the next one": "モード: {mode}。押して選ぶか、Shift+Tab で次へ",
   "This session does not offer {mode}": "このセッションには「{mode}」がありません",
+  "Switch to the classic sidebar": "クラシックサイドバーに切り替え",
+  "Switch to the tree sidebar": "ツリーサイドバーに切り替え",
+  "Show every agent": "すべてのエージェントを表示",
+  "Show only the agents that wait on you or finished": "応答待ちか完了したエージェントだけを表示",
+  "Waiting on you": "対応待ち",
+  "Nothing waits on you here": "対応待ちはありません",
+  "Loading this PC's workspaces…": "この PC のワークスペースを読み込み中…",
+  "Fold {name}": "{name} を折りたたむ",
+  "Unfold {name}": "{name} を展開",
+  "Terminal-only workspaces": "ターミナルだけのワークスペース",
 };

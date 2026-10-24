@@ -1,6 +1,6 @@
 /**
- * Simplified Chinese for the keys only the downstream components use: components/ForkButton.tsx and
- * components/ModeChip.tsx (DOWNSTREAM.md).
+ * Simplified Chinese for the keys only the downstream components use: components/ForkButton.tsx,
+ * components/ModeChip.tsx and components/TreeSidebar.tsx (DOWNSTREAM.md).
  */
 export const DOWNSTREAM_ZH: Record<string, string> = {
   "Forking…": "正在分叉…",
@@ -23,4 +23,14 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Switching the mode…": "正在切换模式…",
   "Mode: {mode}. Press to pick another, or Shift+Tab for the next one": "模式：{mode}。点击选择其他模式，或按 Shift+Tab 切到下一个",
   "This session does not offer {mode}": "这个会话没有「{mode}」",
+  "Switch to the classic sidebar": "切换到经典侧栏",
+  "Switch to the tree sidebar": "切换到树形侧栏",
+  "Show every agent": "显示全部代理",
+  "Show only the agents that wait on you or finished": "只显示等你回答或已完成的代理",
+  "Waiting on you": "需要你",
+  "Nothing waits on you here": "这里没有需要你处理的",
+  "Loading this PC's workspaces…": "正在加载这台电脑的工作区…",
+  "Fold {name}": "收起 {name}",
+  "Unfold {name}": "展开 {name}",
+  "Terminal-only workspaces": "仅终端的工作区",
 };

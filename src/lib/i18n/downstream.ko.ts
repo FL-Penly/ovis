@@ -1,6 +1,6 @@
 /**
- * Korean for the keys only the downstream components use: components/ForkButton.tsx and
- * components/ModeChip.tsx (DOWNSTREAM.md).
+ * Korean for the keys only the downstream components use: components/ForkButton.tsx,
+ * components/ModeChip.tsx and components/TreeSidebar.tsx (DOWNSTREAM.md).
  */
 export const DOWNSTREAM_KO: Record<string, string> = {
   "Forking…": "포크하는 중…",
@@ -23,4 +23,14 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Switching the mode…": "모드 전환 중…",
   "Mode: {mode}. Press to pick another, or Shift+Tab for the next one": "모드: {mode}. 눌러서 고르거나 Shift+Tab으로 다음 모드",
   "This session does not offer {mode}": "이 세션에는 「{mode}」가 없습니다",
+  "Switch to the classic sidebar": "클래식 사이드바로 전환",
+  "Switch to the tree sidebar": "트리 사이드바로 전환",
+  "Show every agent": "모든 에이전트 보기",
+  "Show only the agents that wait on you or finished": "응답을 기다리거나 끝난 에이전트만 보기",
+  "Waiting on you": "응답 대기",
+  "Nothing waits on you here": "응답을 기다리는 항목이 없습니다",
+  "Loading this PC's workspaces…": "이 PC의 워크스페이스를 불러오는 중…",
+  "Fold {name}": "{name} 접기",
+  "Unfold {name}": "{name} 펼치기",
+  "Terminal-only workspaces": "터미널만 있는 워크스페이스",
 };
