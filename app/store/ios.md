@@ -172,7 +172,7 @@ refuse addresses that are not an Ovis server, which is an app change, not a form
 - [ ] Build selected on the version page > Add for Review > Submit
 
 Apple may ask about guideline 4.2 (an app that is "mostly a website"): the answer is the native
-connect screen, QR pairing, the bundled demo, and push notifications in a coming version.
+connect screen, QR pairing, the bundled demo, and push notifications (in this version, through the Notification Service Extension).
 
 ## Later builds
 
