@@ -1,4 +1,5 @@
 import type { HerdrIdentity } from "../../shared/machines.ts";
+import { rustSidecar } from "./host.ts";
 
 /**
  * A terminal attach runs on the PTY sidecar: `node pty-host.mjs`, which imports
@@ -54,7 +55,13 @@ let known: boolean | null = null;
 /** This runtime's answer is taken once: every caller (attach, /api/health, /api/bridge) gets the same one. */
 export function sidecarAvailable(runtime?: SidecarRuntime): boolean {
   if (runtime) return runtime.pty() && runtime.node();
-  if (known === null) known = here.pty() && here.node();
+  if (known === null) {
+    known = here.pty() && here.node();
+    if (process.env["OVIS_PTY_SIDECAR"] === "rust") {
+      if (known) rustSidecar();
+      else console.error("OVIS_PTY_SIDECAR=rust: this PC has no Node for the PTY sidecar, so panes are mirrored; the Rust host is used only where the Node sidecar could run");
+    }
+  }
   return known;
 }
 
