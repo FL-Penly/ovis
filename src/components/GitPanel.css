@@ -272,8 +272,10 @@
 .git-ref.is-head { border-color: var(--accent); color: var(--accent); background: var(--accent-tint); }
 .git-ref.is-tag { border-style: dashed; }
 
-.git-commit-files { padding-bottom: var(--space-1); background: var(--bg-elevated); }
-.git-commit-files .git-file { padding-left: 32px; }
+.git-commit-files { position: relative; padding-bottom: var(--space-1); margin-left: var(--space-1); background: var(--bg-elevated); }
+.git-commit-files .git-file { padding-left: var(--space-2); }
+.git-lanes-through { position: absolute; top: 0; left: 0; height: 100%; pointer-events: none; }
+.git-lanes-through line { stroke-width: 1.6; }
 
 .git-more {
   display: block;

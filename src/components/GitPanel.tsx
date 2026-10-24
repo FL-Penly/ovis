@@ -121,6 +121,7 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
   };
 
   const graph = useMemo(() => layoutGraph(commits), [commits]);
+  const graphWidth = useMemo(() => Math.max(1, ...graph.map((row) => row.width)), [graph]);
   const toggle = (key: string) => setFolded((before) => { const next = new Set(before); if (next.has(key)) next.delete(key); else next.add(key); return next; });
 
   const fileRow = (change: GitChange, side: "staged" | "changes" | "conflicts") => {
@@ -214,14 +215,16 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
           {graph.map((row) => <div key={row.commit.hash}>
             <button type="button" className={`git-commit-row${opened?.hash === row.commit.hash ? " is-open" : ""}`} onClick={() => void openCommit(row)}
               title={`${row.commit.hash.slice(0, 10)} · ${row.commit.author} · ${new Date(row.commit.time * 1000).toLocaleString()}\n${row.commit.subject}`}>
-              <GraphCell row={row} width={Math.max(...graph.map((r) => r.width), 1)} />
+              <GraphCell row={row} width={graphWidth} />
               <span className="git-commit-text">
                 {row.commit.refs.map((ref) => <span key={ref} className={`git-ref${ref.startsWith("HEAD") ? " is-head" : ref.startsWith("tag:") ? " is-tag" : ""}`}>{ref.replace(/^HEAD -> /, "")}</span>)}
                 <span className="git-commit-subject">{row.commit.subject}</span>
               </span>
               <span className="git-commit-author">{row.commit.author}</span>
             </button>
-            {opened?.hash === row.commit.hash && <ul className="git-files git-commit-files">
+            {opened?.hash === row.commit.hash && <div className="git-commit-files" style={{ paddingLeft: graphWidth * LANE_PX }}>
+              <LaneThrough lanes={row.bottom.map(([, to]) => to)} width={graphWidth} />
+              <ul className="git-files">
               {opened.base === null && <li className="git-empty">{t("The first commit: open its files from the terminal")}</li>}
               {opened.base !== null && opened.files === null && <li className="git-empty">{t("Reading the repository…")}</li>}
               {opened.files?.map((file) => { const { name, folder } = splitPath(file.path); return <li key={file.path} className="git-file">
@@ -229,7 +232,8 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
                   <span className="git-file-name">{name}</span>{folder && <span className="git-file-folder">{folder}</span>}
                 </button>
               </li>; })}
-            </ul>}
+            </ul>
+            </div>}
           </div>)}
           {more && <button type="button" className="git-more" onClick={() => void loadLog(commits.length)}>{t("Load more commits")}</button>}
         </div>}
@@ -293,6 +297,12 @@ function busyWord(t: ReturnType<typeof useT>, op: Op): string {
     case "checkout": return t("Switching branch…");
     default: return t("Running git…");
   }
+}
+
+function LaneThrough({ lanes, width }: { lanes: number[]; width: number }) {
+  return <svg className="git-lanes-through" width={width * LANE_PX} aria-hidden="true">
+    {[...new Set(lanes)].map((lane) => <line key={lane} x1={lane * LANE_PX + LANE_PX / 2} x2={lane * LANE_PX + LANE_PX / 2} y1="0" y2="100%" stroke={LANE_COLORS[lane % LANE_COLORS.length]} />)}
+  </svg>;
 }
 
 function GraphCell({ row, width }: { row: GraphRow; width: number }) {
