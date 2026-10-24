@@ -32,6 +32,12 @@ which keeps the rest of workspace management (worktrees, reorder, pins). Upstrea
 **Sticky prompt.** As in herdr-web, while you read an answer whose prompt has scrolled out of view, that prompt
 stays pinned over the top of the chat (two lines); a press scrolls back to it. It reads the minimap's turns.
 
+**Workspace and tab keys.** ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the
+previous / next tab of the open workspace (both wrap around), ⌘T opens a terminal tab in that workspace, and ⌘W closes the open
+tab as its × does (a confirm first when an agent in it is at work or it is the workspace's last tab).
+Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
+field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
+
 **A Codex chat beside its fork.** A fork holds every answer of the conversation it was cut from, so a Codex
 pane's chat could not tell its own conversation from the fork's (and showed the terminal), most of all once
 the original was backtracked to the fork point. A rollout another pane was started on with
@@ -47,12 +53,13 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
 | `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `src/components/StickyPrompt.tsx` (+ css, test) | The sticky prompt over the chat. |
+| `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
 `server/pane-routes.ts` (2 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
-`src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
+`src/App.tsx` (the workspace and tab keys, 3 lines), `src/components/TabStrip.tsx` (⌘W), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). `git diff upstream/main...main` shows the whole patch.
 

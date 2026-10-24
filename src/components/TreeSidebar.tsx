@@ -91,6 +91,13 @@ export function treeGroups(snapshot: SessionSnapshot | null): WorkspaceRows[] {
   }));
 }
 
+/** The workspaces the sidebar lists, in its order, for the keyboard's workspace steps (lib/navShortcuts.ts). */
+export function sidebarWorkspaceIds(snapshot: SessionSnapshot, selectedPaneId: string | null): string[] {
+  if (state.layout !== "tree" || !state.hideAgentless) return snapshot.workspaces.map((workspace) => workspace.workspace_id);
+  return treeGroups(snapshot).filter(({ agents, terminals }) => agents.length > 0
+    || terminals.some((pane) => pane.pane_id === selectedPaneId)).map(({ workspace }) => workspace.workspace_id);
+}
+
 /** herdr-web's state dot: a spinner while it works, a ringed blue dot for a question, green for an answer not seen yet. */
 function StateDot({ status }: { status: KnownStatus | null }) {
   const t = useT();

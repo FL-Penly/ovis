@@ -35,6 +35,7 @@ import { displayPaneTitle } from "./Sidebar.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { paneDrag } from "../lib/paneDrag.ts";
 import { lastViewedPane, rememberViewedPane } from "../lib/lastViewedPane.ts";
+import { useCloseTabKey } from "../lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
 
 const said = (reason: unknown): string => reason instanceof ApiError ? reason.detail : reason instanceof Error ? reason.message : String(reason);
 
@@ -209,6 +210,7 @@ export function TabStrip({ snapshot, workspace, selectedPane, onSelectPane, onNe
     if (row) scroll.current = stripScrolled(scroll.current, row.scrollLeft, row.scrollWidth - row.clientWidth);
   };
 
+  const closeOnKey = useCloseTabKey(machineId); // downstream: ⌘W
   if (!shown || (cramped && tabs.length === 1)) return null;
 
   const panesOf = (tab: HerdrTab): PaneInfo[] => panes.filter((pane) => pane.tab_id === tab.tab_id);
@@ -284,6 +286,8 @@ export function TabStrip({ snapshot, workspace, selectedPane, onSelectPane, onNe
         : t("It is the last tab of {workspace}: the workspace closes with it, and the agents and shells in it stop.", { workspace: workspace.label }),
     });
   };
+
+  closeOnKey.current = (tabId) => { const tab = tabs.find((candidate) => candidate.tab_id === tabId); if (tab) requestClose(tab); return tab !== undefined; }; // downstream
 
   // arrows move between the tabs; Enter or Space on one opens it, as any button; F2 names it, Delete closes it
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
