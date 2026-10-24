@@ -1,0 +1,5 @@
+/* Downstream (DOWNSTREAM.md): an answer's meta row (copy, time, Fork) sits at the bottom right. */
+.chat-agent-meta {
+  align-self: stretch;
+  justify-content: flex-end;
+}

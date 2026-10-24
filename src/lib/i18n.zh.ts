@@ -10,6 +10,7 @@ import { DEVICES_ZH } from "./i18n/devices.zh.ts";
 import { USAGE_ZH } from "./i18n/usage.zh.ts";
 import { UPDATES_ZH } from "./i18n/updates.zh.ts";
 import { PALETTE_ZH } from "./i18n/palette.zh.ts";
+import { FORK_ZH } from "./i18n/fork.zh.ts"; // downstream
 
 /**
  * Simplified Chinese for every `t("…")` in src/ that no part in lib/i18n/ holds: keys more than
@@ -279,6 +280,7 @@ export const ZH_PARTS: Record<string, Record<string, string>> = {
   usage: USAGE_ZH,
   updates: UPDATES_ZH,
   palette: PALETTE_ZH,
+  fork: FORK_ZH, // downstream
 };
 
 export const ZH: Record<string, string> = Object.assign({}, ...Object.values(ZH_PARTS));
