@@ -892,8 +892,8 @@ const Turn = memo(function Turn({ paneId, turn, live, waiting, showThinking, ski
       {/* a mouse reads one copy glyph and the words "Plain text"; touch reads the two formats */}
       <CopyButton className="chat-meta-btn" text={answerText} label={t("Copy as markdown")} onResult={copied}><span className="chat-meta-fmt">MD</span></CopyButton>
       <CopyButton className="chat-meta-btn chat-meta-plain" text={plainText(answerText)} label={t("Copy as plain text")} onResult={copied}><span className="chat-meta-fmt">TXT</span><span className="chat-meta-word">{t("Plain text")}</span></CopyButton>
-      {forkable && !live && turn.end_ts && <ForkButton paneId={paneId} endTs={turn.end_ts} />}
       {time}
+      {forkable && !live && turn.end_ts && <ForkButton paneId={paneId} endTs={turn.end_ts} />}
     </div>}
     {copyError}
   </article>;

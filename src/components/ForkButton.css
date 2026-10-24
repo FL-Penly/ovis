@@ -1,0 +1,8 @@
+/* Downstream (DOWNSTREAM.md): the Fork button sits at the far right of an answer's meta row. */
+.chat-agent-meta:has(.chat-fork) {
+  align-self: stretch;
+}
+
+.chat-agent-meta .chat-fork {
+  margin-left: auto;
+}
