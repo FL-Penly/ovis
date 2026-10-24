@@ -209,19 +209,15 @@ describe("raw NUL bytes", () => {
   // A raw 0x00 in a source file still compiles, but git and review tools then show the file's
   // diff as binary, so whatever else changed in it goes unreviewed. Tracked text is read as bytes
   // (offsets are byte offsets), listed with `git ls-files -z` (a path may hold a newline).
-  const TEXT_DIRS = new Set(["src", "server", "shared", "scripts", "site", "telemetry", "integrations", "push-relay", "crates", "app", "ovis-site", "public", ".github", "docs", "changelog.d", "patches"]);
-  const TEXT_SUFFIXES = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".css", ".scss", ".html", ".svg", ".md", ".mdx", ".txt", ".yml", ".yaml", ".toml", ".sh", ".ps1", ".cmd", ".bat", ".py", ".rs", ".swift", ".java", ".kt", ".gradle", ".xml", ".plist", ".storyboard", ".properties", ".entitlements", ".xcprivacy", ".xcconfig", ".pbxproj", ".pro", ".ansi", ".jsonl", ".sql", ".patch", ".diff", ".webmanifest"]);
-  const TEXT_NAMES = new Set(["LICENSE", "Dockerfile", "Makefile", "CODEOWNERS", ".gitignore", ".gitattributes", ".npmrc", ".nvmrc", ".dockerignore", "bun.lock", "gradlew", "_headers", "_redirects"]);
-  /** Research notes, build output, dependencies and caches: never source, even when tracked by mistake. */
-  const NOT_SOURCE = new Set([".omo", "dist", "_site", "remote-bundles", "node_modules", ".cache"]);
+  // Every tracked file is text except these binary formats. git's own binary flag cannot choose:
+  // a text file with a NUL in it is exactly what git starts calling binary.
+  const BINARY_SUFFIXES = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".icns", ".woff", ".woff2", ".ttf", ".otf", ".webm", ".mp4", ".mov", ".mp3", ".wav", ".pdf", ".zip", ".gz", ".tgz", ".jar", ".wasm", ".dmg"]);
 
-  /** Whether a repository-relative path is tracked text: a text name in a source directory or at the root. */
+  /** Whether a repository-relative path is text: any name without a binary suffix. */
   const isText = (path: string): boolean => {
-    const parts = path.split("/");
-    const name = parts.at(-1)!;
+    const name = path.split("/").at(-1)!;
     const dot = name.lastIndexOf(".");
-    return !parts.some((part) => NOT_SOURCE.has(part)) && (parts.length === 1 || TEXT_DIRS.has(parts[0]!))
-      && (TEXT_NAMES.has(name) || (dot > 0 && TEXT_SUFFIXES.has(name.slice(dot))));
+    return dot < 0 || !BINARY_SUFFIXES.has(name.slice(dot).toLowerCase());
   };
 
   /** The offender line for a file's bytes: its JSON-escaped path and the zero-based byte offset of the first raw NUL, or null. */
@@ -262,7 +258,7 @@ describe("raw NUL bytes", () => {
 
   it("keeps tracked text free of raw NUL bytes", () => {
     const { scanned, offenders } = scanNul(repo);
-    fail(offenders, "Remove the raw NUL (0x00) bytes from these tracked text files: one makes git and review tools show the file's diff as binary, which hides the rest of the change from review. Write the escape (\"\\0\", \"\\u0000\", \"\\x00\") in source instead, and give a binary asset a binary suffix (the text suffixes are TEXT_SUFFIXES in scripts/conventions.test.ts).");
+    fail(offenders, "Remove the raw NUL (0x00) bytes from these tracked text files: one makes git and review tools show the file's diff as binary, which hides the rest of the change from review. Write the escape (\"\\0\", \"\\u0000\", \"\\x00\") in source instead, and give a binary asset a binary suffix (BINARY_SUFFIXES in scripts/conventions.test.ts).");
     expect(scanned).toBeGreaterThan(1000);
   });
 
@@ -300,6 +296,13 @@ describe("raw NUL bytes", () => {
     });
   });
 
+  it("reads tracked text in any directory and with any name", () => {
+    // the two misses the allowlist had: a lock file it did not list, and a new top-level directory
+    withRepo({ "crates/pty-sidecar/Cargo.lock": "version = 4\n\0", "tools/new.ts": "export {};\0", "Brewfile": "\0" }, {}, (root, env) => {
+      expect(scanNul(root, env)).toEqual({ scanned: 3, offenders: ["\"Brewfile\": raw NUL at byte 0", "\"crates/pty-sidecar/Cargo.lock\": raw NUL at byte 12", "\"tools/new.ts\": raw NUL at byte 10"] });
+    });
+  });
+
   it("escaped NUL source remains text", () => {
     withRepo({ "src/escaped.ts": "const a = \"\\0\";\nconst b = \"\\u0000\";\nconst c = /\\x00/;\n", "server/x.sql": "SELECT char(0);\n" }, {}, (root, env) => {
       expect(scanNul(root, env)).toEqual({ scanned: 2, offenders: [] });
@@ -322,16 +325,15 @@ describe("raw NUL bytes", () => {
     });
   });
 
-  it("binary untracked and excluded artifact paths are not source", () => {
+  it("binary, untracked, deleted and linked files are not read", () => {
     const nul = Buffer.from([0x77, 0x4f, 0x46, 0x32, 0, 1, 0, 0]);
-    expect(["bun.lock", ".gitignore", "LICENSE", "package.json", ".github/CODEOWNERS", "changelog.d/x.md", "patches/a.patch", "shared/herdr-api.generated.ts", "site/demo/x.svg", "app/ios/App.swift", "public/sw.js", "ovis-site/index.html", "scripts/fixtures/a.ansi"].filter((path) => !isText(path))).toEqual([]);
-    expect(["src/fonts/a.woff2", "src/icon.png", "app/icon.png", "public/fonts/a.woff2", ".omo/evidence/a.json", "dist/index.js", "site/_site/a.html", "remote-bundles/a.js", "src/node_modules/a/index.js", "server/.cache/a.json", "src/README"].filter(isText)).toEqual([]);
+    expect(["bun.lock", "crates/pty-sidecar/Cargo.lock", "tools/new.ts", "LICENSE", "src/README", "app/ios/App.swift", "scripts/fixtures/a.ansi", "dist/index.js"].filter((path) => !isText(path))).toEqual([]);
+    expect(["src/fonts/a.woff2", "src/icon.png", "app/Icon.PNG", "ovis-site/a.webp", "ovis-site/a.jpg", "public/favicon.ico", "app/android/gradle/wrapper/gradle-wrapper.jar", "site/clip.webm"].filter(isText)).toEqual([]);
     const outside = mkdtempSync(join(tmpdir(), "tracked-text-outside-"));
     try {
       writeFileSync(join(outside, "target.ts"), "\0");
       withRepo({
-        "src/fonts/inter.woff2": nul, "public/fonts/inter.woff2": nul, ".omo/evidence/run.json": "{\0}", "dist/app.js": "\0",
-        "site/dist/app.js": "\0", "src/gone.ts": "\0", "src/ok.ts": "export {};\n",
+        "src/fonts/inter.woff2": nul, "public/fonts/inter.woff2": nul, "app/icon.png": nul, "src/gone.ts": "\0", "src/ok.ts": "export {};\n",
       }, { "src/untracked.ts": "\0" }, (root, env) => {
         rmSync(join(root, "src/gone.ts"));
         symlinkSync(join(outside, "target.ts"), join(root, "src/link.ts"));
