@@ -2,6 +2,8 @@ import Foundation
 
 enum Ovis {
     static let pluginID = "devswha.ovis"
+    /// Releases 0.4.13 and older install, run and update under this id, and install.sh keeps them there.
+    static let legacyPluginID = "devswha.herdr-web-ui"
     static let agentLabel = "sh.ovis.herdr-server"
     static let installScript = URL(string: "https://ovis.sh/install.sh")!
     static let support = URL(string: "https://ovis.sh/support/")!
