@@ -53,9 +53,12 @@ jobs:
             echo "::error::$RELEASE_TAG's package.json says $version." >&2
             exit 1
           fi
-          # a set already attached stays: replacing it would let installs see a mix of two builds
+          # a complete set already attached stays: replacing it would let installs see a mix of two builds
           if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -qx ovis-pty-sidecar.json; then
             echo "::error::$RELEASE_TAG already has the Rust PTY host." >&2
             exit 1
           fi
-          gh release upload "$RELEASE_TAG" pty-sidecar/*
+          # installs read the manifest first, so it goes last: until it is there, a release offers no host,
+          # and a run that failed halfway is repaired by running this again (--clobber replaces its binaries)
+          gh release upload "$RELEASE_TAG" pty-sidecar/ovis-pty-sidecar-* pty-sidecar/SHA256SUMS --clobber
+          gh release upload "$RELEASE_TAG" pty-sidecar/ovis-pty-sidecar.json

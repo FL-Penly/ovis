@@ -147,6 +147,8 @@ try {
       if (!architectures(ptySidecar).includes(want)) throw new Error(`${ptySidecar} has no ${want} code: ${architectures(ptySidecar).join(", ")}`);
       cpSync(ptySidecar, join(stage, "bin", PTY_SIDECAR));
       chmodSync(join(stage, "bin", PTY_SIDECAR), 0o755);
+      // the record server/pty/host.ts checks before it runs an installed host: this bundle's package.json version
+      writeFileSync(join(stage, "bin", `${PTY_SIDECAR}.json`), `${JSON.stringify({ crate: null, sha256: digest(readFileSync(ptySidecar)), version: REMOTE_BUNDLE_VERSION })}\n`);
     } else {
       console.log(`${platform}: HERDR_BUNDLE_PTY_SIDECAR is not set, so this bundle has no Rust PTY host`);
     }

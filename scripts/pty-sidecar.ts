@@ -60,9 +60,11 @@ function command(argv: string[], timeout = 600_000): string {
  * when its sources differ from HEAD (edited, staged or untracked files; target/ is ignored).
  */
 export function crateTree(cwd = root): { tree: string } | { error: string } {
-  const tree = Bun.spawnSync(["git", "rev-parse", `HEAD:${CRATE}`], { cwd, stdout: "pipe", stderr: "ignore" });
+  // bounded: a git that hangs (a stuck fsmonitor) must not hold the plugin build or install.sh
+  const git = (...args: string[]) => Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore", timeout: 10_000, killSignal: "SIGKILL" });
+  const tree = git("rev-parse", `HEAD:${CRATE}`);
   if (tree.exitCode !== 0) return { error: "not a git checkout, so the release's host cannot be matched to these sources" };
-  const status = Bun.spawnSync(["git", "status", "--porcelain", "--untracked-files=all", "--", CRATE], { cwd, stdout: "pipe", stderr: "ignore" });
+  const status = git("status", "--porcelain", "--untracked-files=all", "--", CRATE);
   if (status.exitCode !== 0 || status.stdout.toString().trim() !== "") return { error: `${CRATE} has changes that are not committed, so a release's host would not be built from them` };
   return { tree: tree.stdout.toString().trim() };
 }
@@ -151,14 +153,18 @@ async function download(url: string, signal: AbortSignal): Promise<Uint8Array> {
 const message = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** What was verified of the installed host, kept beside it: only a host that matches its record survives a failed install. */
-interface Installed { crate: string; sha256: string }
+/**
+ * What was verified of the installed host, kept beside it: only a host that matches its record survives a
+ * failed install, and the server runs an installed host only when the record's SHA-256 and version match
+ * (server/pty/host.ts), so one that could not be removed is never run.
+ */
+interface Installed { crate: string; sha256: string; version: string }
 const recordOf = (target: string) => `${target}.json`;
 
 function verifiedFor(target: string, crate: string): boolean {
   try {
     const record = JSON.parse(readFileSync(recordOf(target), "utf8")) as Installed;
-    return record.crate === crate && sha256(readFileSync(target)) === record.sha256;
+    return record.crate === crate && record.version === packageVersion() && sha256(readFileSync(target)) === record.sha256;
   } catch {
     return false;
   }
@@ -232,7 +238,7 @@ async function attempt(crate: string, target: string, options: { releases?: stri
     // the record goes first: a host in place without one is removed by the next failed install, never trusted
     rmSync(recordOf(target), { force: true });
     renameSync(temporary, target);
-    writeFileSync(recordOf(target), `${JSON.stringify({ crate, sha256: digest } satisfies Installed)}\n`);
+    writeFileSync(recordOf(target), `${JSON.stringify({ crate, sha256: digest, version } satisfies Installed)}\n`);
   } finally {
     rmSync(temporary, { force: true });
   }

@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { defaultRustSidecar, ptyHost, RUST_SIDECAR_BUILD, rustSidecar } from "./host.ts";
+import { defaultRustSidecar, installedHostVouched, ptyHost, RUST_SIDECAR_BUILD, rustSidecar } from "./host.ts";
 import { PtySession, type PtySessionOptions } from "./session.ts";
 
 /** the Rust host these tests run: OVIS_PTY_SIDECAR_BIN, else the release build */
@@ -26,12 +27,26 @@ describe("ptyHost", () => {
     } finally { said.mockRestore(); }
   });
 
-  it("prefers the installed release's host to a local build", () => {
+  it("prefers the installed host to a local build only while its record vouches for it", () => {
     const dir = mkdtempSync(join(tmpdir(), "ovis-pty-installed-"));
     try {
-      const installed = join(dir, "ovis-pty-sidecar");
+      mkdirSync(join(dir, "bin"));
+      writeFileSync(join(dir, "package.json"), JSON.stringify({ version: "9.9.9" }));
+      const installed = join(dir, "bin", "ovis-pty-sidecar");
+      const record = (fields: Record<string, unknown>) => writeFileSync(`${installed}.json`, JSON.stringify(fields));
       expect(defaultRustSidecar(installed)).toBe(RUST_SIDECAR_BUILD);
-      writeFileSync(installed, "");
+      writeFileSync(installed, "host");
+      const digest = createHash("sha256").update("host").digest("hex");
+      expect(defaultRustSidecar(installed)).toBe(RUST_SIDECAR_BUILD);
+      record({ sha256: digest, version: "0.0.1" });
+      expect(defaultRustSidecar(installed)).toBe(RUST_SIDECAR_BUILD);
+      record({ sha256: "0".repeat(64), version: "9.9.9" });
+      writeFileSync(installed, "host\n");
+      expect(defaultRustSidecar(installed)).toBe(RUST_SIDECAR_BUILD);
+      writeFileSync(installed, "host");
+      record({ sha256: digest, version: "9.9.9" });
+      writeFileSync(installed, "host");
+      expect(installedHostVouched(installed)).toBe(true);
       expect(defaultRustSidecar(installed)).toBe(installed);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
