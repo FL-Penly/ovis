@@ -60,6 +60,8 @@ class HerdrBridgeViewController: CAPBridgeViewController {
     private var openingView: UIView?
     /// Gives up on a PC that has not answered, instead of WebKit's own wait of a minute or more.
     private var answerTimeout: DispatchWorkItem?
+    /// The reason to show once the load the timeout stopped has ended.
+    private var timedOut: String?
     /// How long a PC may take to answer the first request.
     private static let answerSeconds = 20
 
@@ -98,6 +100,13 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             }
             proxy.onAnswer = { [weak self] in self?.answerTimeout?.cancel() }
             proxy.onLoaded = { [weak self] in self?.hideOpening() }
+            proxy.onCancelled = { [weak self] webView in
+                // the stopped load has ended; loading the error page while it was still ending let
+                // WebKit drop the error page too, leaving the cover up
+                guard let self, let reason = self.timedOut else { return }
+                self.timedOut = nil
+                DispatchQueue.main.async { self.showFailure(in: webView, reason: reason) }
+            }
             // a first page that broke off after it started: the error page rather than a cover with no
             // way on; a later page that breaks off is left as it was
             proxy.onPageFailed = { [weak self] webView, reason in
@@ -112,12 +121,19 @@ class HerdrBridgeViewController: CAPBridgeViewController {
             showOpening(origin)
             let timeout = DispatchWorkItem { [weak self, weak webView] in
                 guard let self, let webView else { return }
-                // stopping ends the load as cancelled, which the proxy does not report again
-                webView.stopLoading()
                 let host = URL(string: origin)?.host ?? origin
-                self.showFailure(in: webView, reason: Self.korean
+                let reason = Self.korean
                     ? "\(host)이(가) \(Self.answerSeconds)초 안에 열리지 않았습니다."
-                    : "\(host) did not open within \(Self.answerSeconds) seconds.")
+                    : "\(host) did not open within \(Self.answerSeconds) seconds."
+                // the error page follows once the stopped load reports that it was cancelled
+                // (onCancelled), or after a second if it never does
+                self.timedOut = reason
+                webView.stopLoading()
+                DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(1)) { [weak self, weak webView] in
+                    guard let self, let webView, let reason = self.timedOut else { return }
+                    self.timedOut = nil
+                    self.showFailure(in: webView, reason: reason)
+                }
             }
             answerTimeout = timeout
             DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(Self.answerSeconds), execute: timeout)
@@ -201,6 +217,8 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
     var onLoaded: (() -> Void)?
     /// A page broke off after it started loading, with the reason, or nil when that was on purpose.
     var onPageFailed: ((WKWebView, String?) -> Void)?
+    /// The first page's load ended as cancelled or handed off on purpose.
+    var onCancelled: ((WKWebView) -> Void)?
 
     /// Whether a failed load was cancelled or handed off on purpose: a new navigation, WebKit's
     /// "frame load interrupted" (102) or "plug-in handled load" (204).
@@ -250,7 +268,7 @@ final class NavigationFailureProxy: NSObject, WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         inner?.webView?(webView, didFailProvisionalNavigation: navigation, withError: error)
-        if !Self.onPurpose(error) { onFailure(webView, error.localizedDescription) }
+        if Self.onPurpose(error) { onCancelled?(webView) } else { onFailure(webView, error.localizedDescription) }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
