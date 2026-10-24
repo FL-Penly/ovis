@@ -82,6 +82,8 @@ import { storedView, usePaneLens, usePaneLensState, usePaneViewPicks } from "./l
 import { useSplitLayout, useSplitRecheck, useSplitState } from "./lib/useSplitView.ts";
 import { useLinkLanding, useMachineGone, useNotificationTargets, useSelectedLayout, useSelectedMachine, useSelectedPane, useSelectionMark, useSelectionState, useSelectPane, useSelectTarget } from "./lib/useSelection.ts";
 import { useAddressBar } from "./lib/useAddressBar.ts";
+import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
+import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
 
 const APP_TITLE = "Ovis";
 /** how soon after a key press a focus counts as the user's own (lastKeyAtRef) */
@@ -444,6 +446,7 @@ export function App() {
   );
 
   useShortcuts(actions, locked === false);
+  useNavShortcuts(actions, snapshotRef, selectedMachineId, selectedPaneId, sidebarWorkspaceIds, locked === false); // downstream
 
   // The header's More menu: what used to be three buttons of its own. Each item is there under
   // the condition its button had. At phone width the palette's button gives its room to the
