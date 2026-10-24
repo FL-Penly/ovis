@@ -6,8 +6,8 @@ files of its own, so a merge rarely conflicts.
 
 ## What it adds
 
-**Fork from any reply.** Every finished answer of a Claude Code or Codex pane has a Fork button (⑂ beside
-Copy). It starts the session as it stood at the end of that reply in a new tab of the same workspace, with
+**Fork from any reply.** Every finished answer of a Claude Code or Codex pane has a Fork button (⑂, bottom right,
+with Copy and the time). Its menu starts the session as it stood at the end of that reply in a new tab of the same workspace or a split right or below, with
 the original session's flags and environment; the original keeps running.
 
 | File | What it holds |
