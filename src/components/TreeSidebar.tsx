@@ -8,13 +8,14 @@
  * the layout is "tree"; the footer's layout button switches back to upstream's.
  */
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Ellipsis, EyeOff, History, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
+import { BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Ellipsis, EyeOff, History, Send, Users, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
 import type { Machine } from "../../shared/machines.ts";
 import type { AgentStatus, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
 import type { AppActions } from "../lib/actions.ts";
 import { useT } from "../lib/i18n.ts";
 import { knownStatus, type KnownStatus } from "../lib/status.ts";
 import { rosterPanes } from "../lib/dagPane.ts";
+import { copyText } from "../lib/clipboard.ts";
 import { useMachineApi } from "../lib/machineContext.tsx";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
 import { paneMark, sidebarAgents, type SidebarAgent } from "../lib/sidebarAgents.ts";
@@ -149,8 +150,11 @@ export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): voi
 }
 
 type Menu = { kind: "workspace"; workspace: WorkspaceInfo; anchor: HTMLElement; point?: { x: number; y: number } }
-  | { kind: "pane"; pane: PaneInfo; title: string; anchor: HTMLElement; point?: { x: number; y: number } };
-type MenuTarget = { kind: "workspace"; workspace: WorkspaceInfo } | { kind: "pane"; pane: PaneInfo; title: string };
+  | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null; anchor: HTMLElement; point?: { x: number; y: number } };
+type MenuTarget = { kind: "workspace"; workspace: WorkspaceInfo } | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null };
+
+/** A folder as herdr-web wrote it in a dispatch note: the home directory as ~. */
+const shortCwd = (cwd: string | null | undefined): string => (cwd ?? "").replace(/^(?:\/data\d+)?\/home\/[^/]+(?=\/|$)/, "~");
 
 /** One PC's workspaces as herdr-web's groups; MachineGroup draws it in place of its workspace list. */
 export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, actions }: { machine: Machine; snapshot: SessionSnapshot | null; online: boolean; selectedPaneId: string | null; actions: AppActions }) {
@@ -162,8 +166,13 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const [menu, setMenu] = useState<Menu | null>(null);
   const [closing, setClosing] = useState<{ pane: PaneInfo; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const groups = useMemo(() => treeGroups(snapshot), [snapshot]);
   const status = (pane: PaneInfo): AgentStatus | undefined => online ? activity.status(machine.id, pane) : undefined;
+  const copy = (text: string, said: string) => void copyText(text).then((ok) => {
+    setCopied(ok ? said : t("Couldn't copy: the browser refused the clipboard"));
+    window.setTimeout(() => setCopied(null), 2500);
+  });
   const run = (deed: () => Promise<unknown>) => { setError(null); deed().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e))); };
 
   // a right-click opens the menu at the pointer, the ⋯ under itself
@@ -172,10 +181,11 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     setMenu({ ...target, anchor: event.currentTarget, ...(atPointer ? { point: { x: event.clientX, y: event.clientY } } : {}) });
   };
 
-  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, terminal: boolean) => {
+  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, agent: SidebarAgent | null) => {
+    const terminal = agent === null;
     const selected = pane.pane_id === selectedPaneId;
     return <div key={pane.pane_id} className={`tree-row${selected ? " is-active" : ""}${terminal ? " is-terminal" : ""}`}
-      onContextMenu={(event) => openMenu(event, { kind: "pane", pane, title }, true)}>
+      onContextMenu={(event) => openMenu(event, { kind: "pane", pane, title, agent }, true)}>
       <button type="button" className="tree-row-main" disabled={!online} aria-current={selected ? "true" : undefined}
         title={[title, pane.cwd].filter(Boolean).join("\n")} onClick={() => actions.selectPane(pane.pane_id)}
         draggable={online}
@@ -187,7 +197,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         <span className="tree-row-name"><span className="tree-row-title">{title}</span>{extra}</span>
       </button>
       <button type="button" className="tree-row-more" aria-label={t("Actions for {title}", { title })} aria-haspopup="menu"
-        onClick={(event) => openMenu(event, { kind: "pane", pane, title }, false)}><Ellipsis aria-hidden="true" /></button>
+        onClick={(event) => openMenu(event, { kind: "pane", pane, title, agent }, false)}><Ellipsis aria-hidden="true" /></button>
     </div>;
   };
 
@@ -201,10 +211,28 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       <>
         {name && <span className="tree-row-agent-name">@{name}</span>}
         {place && <small>{place} · {known === "blocked" ? t("Waits for your answer") : t("Finished, not seen yet")}</small>}
-      </>, false);
+      </>, entry);
   };
 
-  const terminalRow = (pane: PaneInfo) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, true);
+  const terminalRow = (pane: PaneInfo) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null);
+
+  // herdr-web's copies: the pane's id and name, and how another agent hands this one a task over herdr's CLI
+  const paneCopies = (open: Extract<Menu, { kind: "pane" }>): RowMenuItem[] => {
+    const name = open.agent?.agent?.name?.trim() || null;
+    const target = name ?? open.pane.pane_id;
+    const kind = open.agent?.agentLabel ?? open.agent?.canonicalAgent ?? "agent";
+    const who = t("{kind} “{title}” in {cwd}", { kind, title: open.title, cwd: shortCwd(open.pane.cwd) });
+    return [
+      { id: "copy-id", label: t("Copy the pane ID"), hint: open.pane.pane_id, icon: Copy, run: () => copy(open.pane.pane_id, t("Copied to the clipboard")) },
+      ...(name ? [{ id: "copy-name", label: t("Copy the agent's name"), hint: name, icon: Copy, run: () => copy(name, t("Copied to the clipboard")) }] : []),
+      ...(open.agent ? [
+        { id: "copy-dispatch", label: t("Copy the dispatch command"), icon: Send,
+          run: () => copy(`herdr agent prompt ${target} "${t("describe the task here")}" --wait --timeout 600000`, t("Dispatch command copied")) },
+        { id: "copy-instructions", label: t("Copy dispatch instructions (for another agent)"), icon: Users,
+          run: () => copy(t("Hand this task to the herdr agent {target} ({who}): first check it is idle with `herdr agent get {target}`, then send it with `herdr agent prompt {target} \"<task>\" --wait --timeout 600000`, and read the result with `herdr agent read {target}`. See `herdr --skill` for details.", { target, who }), t("Dispatch instructions copied: paste them into another session")) },
+      ] : []),
+    ];
+  };
 
   const menuItems = (open: Menu): RowMenuItem[] => open.kind === "workspace" ? [
     { id: "new-tab", label: t("New tab in {name}", { name: open.workspace.label }), icon: Plus, run: () => actions.openNewTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id }) },
@@ -214,7 +242,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       if (label && label !== open.workspace.label) run(() => api.renameWorkspace(open.workspace.workspace_id, label));
     } },
   ] : [
-    { id: "rename", label: t("Rename the pane"), icon: Pencil, run: () => {
+    ...paneCopies(open),
+    { id: "rename", label: t("Rename the pane"), divider: true, icon: Pencil, run: () => {
       const label = window.prompt(t("Rename the pane"), open.title)?.trim();
       if (label && label !== open.title) run(() => api.renamePane(open.pane.pane_id, label));
     } },
@@ -265,6 +294,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   return <div className="machine-workspaces tree-workspaces">
     {body}
     {error && <p className="machine-error" role="alert">{error}</p>}
+    {copied && <p className="tree-copied" role="status">{copied}</p>}
     {menu && <RowMenu anchor={menu.anchor} point={menu.point} title={menu.kind === "workspace" ? menu.workspace.label : menu.title} onClose={() => setMenu(null)} items={menuItems(menu)} />}
     {closing && <ConfirmDialog title={t("Close the pane")} body={t("Closes {title} and ends what runs in it.", { title: closing.title })} confirmLabel={t("Close the pane")}
       onConfirm={() => api.closePane(closing.pane.pane_id)} onClose={() => setClosing(null)} />}

@@ -22,7 +22,8 @@ branch, a + for a new tab, and while folded the dot of the agent that most asks 
 with herdr-web's state dot, its mark and its title; plain terminals join their workspaces when the list's
 terminal switch is on, one button folds or unfolds them all, and another (on by default) hides the workspaces
 that run no agent, such as agent-board's Board and Wake. A lone PC's header is not drawn. Right-click
-(or ⋯) renames or closes a pane, and a group head offers a new tab, earlier sessions and rename. It replaces the
+(or ⋯) on a pane copies its ID, name, a dispatch command or dispatch instructions (as herdr-web's), renames
+or closes it, and a group head offers a new tab, earlier sessions and rename. It replaces the
 workspace list and the Agents list; the footer's layout button switches back to upstream's (kept per browser),
 which keeps the rest of workspace management (worktrees, reorder, pins). Upstream's browser regression scripts
 (`scripts/*-regression.ts`) assume that classic layout.
