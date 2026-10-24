@@ -42,7 +42,8 @@ if [ -n "$ENV_FILE" ]; then
   # (GH_TOKEN, say) into every container, where any job could read it. A refused line is named by its
   # number only: its value may be a credential, and stderr ends up in the journal.
   status=0
-  bad="$(grep -nvE '^[[:space:]]*(#.*)?$|^CHECK_HOST_(MAX_RUNS|TEST_SHARDS|BROWSER_WORKERS|UNIT_WORKERS)=[0-9]+$' "$ENV_FILE")" || status=$?
+  # -a: a NUL byte would make grep call the file binary and name no line; -- : a path may start with -
+  bad="$(grep -anvE -e '^[[:space:]]*(#.*)?$|^CHECK_HOST_(MAX_RUNS|TEST_SHARDS|BROWSER_WORKERS|UNIT_WORKERS)=[0-9]+$' -- "$ENV_FILE")" || status=$?
   case "$status" in
     0) echo "--env-file: $ENV_FILE may hold only CHECK_HOST_*=<number> lines; refused line(s): $(printf '%s\n' "$bad" | cut -d: -f1 | paste -sd, -)" >&2
        exit 2 ;;

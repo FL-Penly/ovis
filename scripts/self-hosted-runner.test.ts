@@ -48,7 +48,7 @@ function runRunner(options: {
   dockerExitCode?: number;
   failedSlot?: number;
   /** "present" writes a host env file and passes it, "missing" passes a path that does not exist */
-  envFile?: "present" | "missing" | "bare" | "secret";
+  envFile?: "present" | "missing" | "bare" | "secret" | "nul";
   /** a grep on PATH that fails with a read error (exit 2), as on a file that passes -r but cannot be read */
   grepReadError?: boolean;
 } = {}) {
@@ -102,6 +102,7 @@ esac
     if (options.envFile === "present") writeFileSync(envFile, "# P620\n\nCHECK_HOST_MAX_RUNS=6\nCHECK_HOST_BROWSER_WORKERS=10\n");
     if (options.envFile === "bare") writeFileSync(envFile, "CHECK_HOST_MAX_RUNS=6\nGH_TOKEN\n");
     if (options.envFile === "secret") writeFileSync(envFile, "# P620\nCHECK_HOST_MAX_RUNS=6\nGH_TOKEN=ghp_synthetic_secret\n");
+    if (options.envFile === "nul") writeFileSync(envFile, "CHECK_HOST_MAX_RUNS=6\nCHECK_HOST_TEST_SHARDS=6\u0000\n");
     if (options.grepReadError) {
       writeFileSync(join(binDir, "grep"), "#!/bin/sh\necho 'grep: read error' >&2\nexit 2\n");
       chmodSync(join(binDir, "grep"), 0o755);
@@ -181,6 +182,13 @@ describe.skipIf(process.platform === "win32")("self-hosted runner launcher", () 
     expect(result.stderr).toContain("refused line(s): 3\n");
     expect(result.stderr).not.toContain("ghp_synthetic_secret");
     expect(result.stderr).not.toContain("GH_TOKEN");
+    expect(calls).not.toContain("docker run");
+  });
+
+  it("refuses a NUL byte in the host env file and names its line", () => {
+    const { result, calls } = runRunner({ envFile: "nul" });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("refused line(s): 2\n");
     expect(calls).not.toContain("docker run");
   });
 
