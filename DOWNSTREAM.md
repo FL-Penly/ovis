@@ -10,16 +10,25 @@ files of its own, so a merge rarely conflicts.
 with Copy and the time). Its menu starts the session as it stood at the end of that reply in a new tab of the same workspace or a split right or below, with
 the original session's flags and environment; the original keeps running.
 
+**Mode chip, and a model label that switches.** Under the message box of a Claude Code or Codex pane a chip
+shows the agent's mode (bypass permissions, plan, accept edits, …, read from its own footer). A press lists the
+modes and steps the agent there with its own Shift+Tab (a mode the session turns out not to cycle through leaves
+the list); Shift+Tab in the message box steps once. Either way the key goes only while its input box
+is on screen. The model and effort label is a button: it sends `/model`, whose picker Ovis shows as a card.
+
 | File | What it holds |
 | --- | --- |
 | `integrations/quick-fork/` | quick-fork, vendored from herdr-web: cuts the transcript or rollout and starts the copy. Still a herdr plugin of its own (`herdr plugin link "$PWD/integrations/quick-fork"`). |
 | `server/fork-routes.ts` (+ test) | `POST /api/pane/fork {pane_id, end_ts?, mode?}`: finds the fork point by the reply's `end_ts` in the pane's own transcript and calls quick-fork. |
 | `src/components/ForkButton.tsx` | The button. Shown for this PC's panes only: another PC runs upstream's published bundle. |
-| `src/lib/i18n/fork.{zh,ja,ko}.ts` | Its strings. |
+| `src/lib/agentMode.ts` (+ test, `fixtures-agent-mode/`) | Reads the mode from the visible screen; ported from herdr-web with its screen fixtures. |
+| `src/components/ModeChip.tsx` (+ css) | The chip. It reads the screen and sends the key through upstream's `pane/read` and `pane/keys` routes, so remote PCs get it too. |
+| `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
 `server/pane-routes.ts` (2 lines), `src/components/ChatView.tsx` (a few one-line hunks),
-`src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `fork` part), and `scripts/conventions.test.ts`
+`src/components/Composer.tsx` (the chip, and the model label as a button),
+`src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). `git diff upstream/main...main` shows the whole patch.
 
 ## Syncing with upstream
