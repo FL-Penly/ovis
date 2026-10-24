@@ -1,0 +1,102 @@
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { createHash } from "node:crypto";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { architectures, crateTree, expectedArchitectures, install, type Manifest } from "./pty-sidecar.ts";
+
+const version = (JSON.parse(readFileSync(join(import.meta.dir, "..", "package.json"), "utf8")) as { version: string }).version;
+const HOST = "#!/bin/sh\nprintf 'pty-sidecar: usage: fixture\\n' >&2\nexit 2\n";
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+
+describe("install", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ovis-pty-sidecar-install-"));
+  const files = new Map<string, string>();
+  let server: ReturnType<typeof Bun.serve>;
+  let releases = "";
+  const publish = (binary: string, manifest: Partial<Manifest> = {}) => {
+    files.set(`/v${version}/ovis-pty-sidecar-linux-x64`, binary);
+    files.set(`/v${version}/ovis-pty-sidecar.json`, JSON.stringify({
+      version, crate: crateTree(), assets: { "linux-x64": { file: "ovis-pty-sidecar-linux-x64", sha256: sha256(HOST) } }, ...manifest,
+    }));
+  };
+  beforeAll(() => {
+    server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (request) => {
+      const body = files.get(new URL(request.url).pathname);
+      return body === undefined ? new Response("missing", { status: 404 }) : new Response(body);
+    } });
+    releases = `http://127.0.0.1:${server.port}`;
+  });
+  afterAll(() => { void server.stop(true); rmSync(dir, { recursive: true, force: true }); });
+  const target = () => join(dir, crypto.randomUUID(), "ovis-pty-sidecar");
+
+  it("installs the release's binary when its SHA-256 and crate tree match, and keeps it on a rerun", async () => {
+    publish(HOST);
+    const path = target();
+    const first = await install({ releases, target: path, platform: "linux-x64" });
+    expect(first.ok).toBe(true);
+    expect(readFileSync(path, "utf8")).toBe(HOST);
+    const again = await install({ releases, target: path, platform: "linux-x64" });
+    expect(again).toEqual({ ok: true, message: expect.stringContaining("already installed") });
+  });
+
+  it("refuses a binary whose SHA-256 differs from the manifest, leaving nothing behind", async () => {
+    publish(`${HOST}# tampered\n`);
+    const path = target();
+    const result = await install({ releases, target: path, platform: "linux-x64" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("does not match its SHA-256");
+    expect(existsSync(path)).toBe(false);
+    expect(existsSync(join(path, ".."))).toBe(false);
+  });
+
+  it("refuses a release built from other crate sources", async () => {
+    publish(HOST, { crate: "0".repeat(40) });
+    const path = target();
+    const result = await install({ releases, target: path, platform: "linux-x64" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("other crates/pty-sidecar sources");
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("refuses a binary that does not run as the host, leaving nothing behind", async () => {
+    const other = "#!/bin/sh\nexit 0\n";
+    publish(other, { assets: { "linux-x64": { file: "ovis-pty-sidecar-linux-x64", sha256: sha256(other) } } });
+    const path = target();
+    const result = await install({ releases, target: path, platform: "linux-x64" });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("does not run on this PC");
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it("says so when the release has no host, or the platform has none", async () => {
+    files.clear();
+    expect((await install({ releases, target: target(), platform: "linux-x64" })).message).toContain("HTTP 404");
+    expect((await install({ releases, target: target(), platform: "win32-x64" })).message).toContain("no Rust PTY host for win32-x64");
+  });
+});
+
+describe("architectures", () => {
+  const dir = mkdtempSync(join(tmpdir(), "ovis-pty-sidecar-arch-"));
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+  const file = (bytes: Buffer) => {
+    const path = join(dir, crypto.randomUUID());
+    writeFileSync(path, Buffer.concat([bytes, Buffer.alloc(64)]));
+    return path;
+  };
+
+  it("reads ELF and Mach-O headers, every slice of a universal file, and expects them per target", () => {
+    const elf = Buffer.alloc(20);
+    elf.writeUInt32BE(0x7f454c46, 0);
+    elf.writeUInt16LE(0xb7, 18);
+    expect(architectures(file(elf))).toEqual(["elf-aarch64"]);
+    const fat = Buffer.alloc(48);
+    fat.writeUInt32BE(0xcafebabe, 0);
+    fat.writeUInt32BE(2, 4);
+    fat.writeUInt32BE(0x0100000c, 8);
+    fat.writeUInt32BE(0x01000007, 28);
+    expect(architectures(file(fat)).sort()).toEqual(expectedArchitectures(["aarch64-apple-darwin", "x86_64-apple-darwin"]));
+    expect(expectedArchitectures(["x86_64-unknown-linux-musl"])).toEqual(["elf-x86_64"]);
+    expect(architectures(file(Buffer.from("#!/bin/sh\n")))).toEqual(["unknown"]);
+  });
+});

@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, spyOn } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync, watch } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, watch, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import { ptyHost, RUST_SIDECAR_BUILD, rustSidecar } from "./host.ts";
+import { defaultRustSidecar, ptyHost, RUST_SIDECAR_BUILD, rustSidecar } from "./host.ts";
 import { PtySession, type PtySessionOptions } from "./session.ts";
 
 /** the Rust host these tests run: OVIS_PTY_SIDECAR_BIN, else the release build */
@@ -26,8 +26,18 @@ describe("ptyHost", () => {
     } finally { said.mockRestore(); }
   });
 
-  it.skipIf(!existsSync(RUST_SIDECAR_BUILD))("runs the Rust build, or OVIS_PTY_SIDECAR_BIN, when asked", () => {
-    expect(ptyHost("pty-host.mjs", { OVIS_PTY_SIDECAR: "rust" })).toEqual([RUST_SIDECAR_BUILD]);
+  it("prefers the installed release's host to a local build", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ovis-pty-installed-"));
+    try {
+      const installed = join(dir, "ovis-pty-sidecar");
+      expect(defaultRustSidecar(installed)).toBe(RUST_SIDECAR_BUILD);
+      writeFileSync(installed, "");
+      expect(defaultRustSidecar(installed)).toBe(installed);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it.skipIf(!existsSync(defaultRustSidecar()))("runs the installed host or the Rust build, or OVIS_PTY_SIDECAR_BIN, when asked", () => {
+    expect(ptyHost("pty-host.mjs", { OVIS_PTY_SIDECAR: "rust" })).toEqual([defaultRustSidecar()]);
     expect(rustSidecar({ OVIS_PTY_SIDECAR: "rust", OVIS_PTY_SIDECAR_BIN: RUST_SIDECAR_BUILD })).toBe(RUST_SIDECAR_BUILD);
   });
 });

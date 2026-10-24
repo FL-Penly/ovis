@@ -3,6 +3,13 @@ import { join } from "node:path";
 
 /** Where `cargo build --release` in crates/pty-sidecar puts the Rust PTY host. */
 export const RUST_SIDECAR_BUILD = join(import.meta.dir, "..", "..", "crates", "pty-sidecar", "target", "release", "ovis-pty-sidecar");
+/** Where a release's host is installed beside the server (scripts/pty-sidecar.ts install, a remote PC bundle's bin/). */
+export const RUST_SIDECAR_INSTALLED = join(import.meta.dir, "..", "..", "bin", "ovis-pty-sidecar");
+
+/** The host to run without OVIS_PTY_SIDECAR_BIN: the installed release's, else a local build. */
+export function defaultRustSidecar(installed = RUST_SIDECAR_INSTALLED): string {
+  return existsSync(installed) ? installed : RUST_SIDECAR_BUILD;
+}
 
 let warned = false;
 
@@ -13,7 +20,7 @@ let warned = false;
  */
 export function rustSidecar(env: Record<string, string | undefined> = process.env): string | null {
   if (env["OVIS_PTY_SIDECAR"] !== "rust" || process.platform === "win32") return null;
-  const binary = env["OVIS_PTY_SIDECAR_BIN"] || RUST_SIDECAR_BUILD;
+  const binary = env["OVIS_PTY_SIDECAR_BIN"] || defaultRustSidecar();
   if (existsSync(binary)) return binary;
   if (!warned) {
     warned = true;
