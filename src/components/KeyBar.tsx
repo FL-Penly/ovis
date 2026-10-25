@@ -53,7 +53,7 @@ interface KeyProps {
   children: ReactNode;
 }
 
-function Key({ dataKey, label, pressed, onPress, children, disabled, repeatable, holdScope }: KeyProps) {
+export function Key({ dataKey, label, pressed, onPress, children, disabled, repeatable, holdScope }: KeyProps) { // downstream: exported for PhoneKeys.tsx
   const onPressRef = useRef(onPress);
   onPressRef.current = onPress;
   const disabledRef = useRef(disabled);
@@ -154,7 +154,7 @@ const CHEVRON: Record<Direction, string> = {
   right: "M7.5 5l5 5-5 5",
 };
 
-function Chevron({ direction }: { direction: Direction }) {
+export function Chevron({ direction }: { direction: Direction }) { // downstream: exported for PhoneKeys.tsx
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d={CHEVRON[direction]} />

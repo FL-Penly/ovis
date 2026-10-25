@@ -43,6 +43,15 @@ tab as its × does (a confirm first when an agent in it is at work or it is the 
 Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
 field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
 
+**Phone keys.** On a touch screen the terminal keys are mobile-terminal's: three rows (Esc ^C ^L with the input
+line and Paste keys; Tab ⇧Tab Enter ⇧Enter and ↑; Combo keys and ← ↓ →), folded to one row on request (kept per
+browser). Combo keys opens a panel in their place: Ctrl, Alt and Shift stay on until pressed again, over a
+navigation grid and pages of letters and digits, symbols, and editing and function keys; Backspace and the arrows
+repeat while held. Every key goes through upstream's key bar path as an exact chord, so herdr encodes it. A tap on
+the grid raises no soft keyboard (xterm's textarea is `inputmode="none"`); a double tap raises it or puts it
+away. Over the input line, the last ten lines sent (a pick puts one back) and saved phrases (a tap adds one; ☆
+saves the line; ✎ shows each phrase's ✕), kept per browser. A desktop keeps upstream's key bar.
+
 **New tab list.** ⌘T, a workspace's + and the tab strip's + list a terminal first, then the PC's installed agents; Enter opens the
 highlighted one (the terminal first), ↑↓ move, Esc closes. An agent starts with its own defaults (no model, level
 or first message) and Settings' launch mode; the workspace's menu keeps upstream's full dialog.
@@ -74,6 +83,7 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
 | `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `src/components/StickyPrompt.tsx` (+ css, test) | The sticky prompt over the chat. |
+| `src/components/PhoneKeys.tsx` (+ css), `src/components/LineExtras.tsx` (+ css), `src/lib/phoneKeys.ts` (+ test), `src/lib/useDoubleTapKeyboard.ts` | The phone keys, the line's recent lines and phrases, and the double tap for the keyboard; `Key` and `Chevron` are exported from upstream's `KeyBar.tsx` for them. |
 | `src/components/QuickTabPicker.tsx` (+ css) | The new tab list; `openTerminalTab`'s `agent` (`src/lib/actions.ts`, `App.tsx`) runs the pick. |
 | `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `shared/git-panel.ts`, `server/git-panel.ts`, `server/git-panel-routes.ts` (+ test) | `/api/pane/git/{status,log,branches}` (GET) and `/api/pane/git/{stage,unstage,discard,commit,push,pull,fetch,checkout}` (POST). |
