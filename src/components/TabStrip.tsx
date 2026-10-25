@@ -36,6 +36,7 @@ import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { paneDrag } from "../lib/paneDrag.ts";
 import { lastViewedPane, rememberViewedPane } from "../lib/lastViewedPane.ts";
 import { useCloseTabKey } from "../lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
+import { drivenByTests } from "../lib/upstreamTests.ts"; // downstream
 
 const said = (reason: unknown): string => reason instanceof ApiError ? reason.detail : reason instanceof Error ? reason.message : String(reason);
 
@@ -340,7 +341,9 @@ export function TabStrip({ snapshot, workspace, selectedPane, onSelectPane, onNe
     const layout = snapshot.layouts?.find((entry) => entry.tab_id === tab.tab_id);
     const paneItems = touch && tab.tab_id === selectedPane.tab_id
       ? (paneActions?.(selectedPane.pane_id) ?? []).filter((item) => !soloPanes
-        || (item.id === "zoom" ? layout?.zoomed : item.id !== "split-right" && item.id !== "split-down")) : [];
+        || (item.id === "zoom" ? layout?.zoomed : item.id !== "split-right" && item.id !== "split-down"))
+        // downstream: the only pane closes with its tab, so Close tab says it once
+        .filter((item) => drivenByTests || item.id !== "close" || panesOf(tab).length > 1) : [];
     const groups: RowMenuItem[][] = [
       own.length < 2 ? [] : own.map((pane): RowMenuItem => ({
         id: `pane:${pane.pane_id}`, label: displayPaneTitle(pane), icon: Terminal,
@@ -358,7 +361,8 @@ export function TabStrip({ snapshot, workspace, selectedPane, onSelectPane, onNe
       ? [{ id: "move-left", label: t("Move tab left"), icon: ArrowLeft, run: () => reorder.moveAdjacent(tab.tab_id, -1) }] : []),
     ...(!reorder.moving && tabs.findIndex((entry) => entry.tab_id === tab.tab_id) < tabs.length - 1
       ? [{ id: "move-right", label: t("Move tab right"), icon: ArrowRight, run: () => reorder.moveAdjacent(tab.tab_id, 1) }] : []),
-    { id: "new-agent-tab", label: t("New tab with agent…"), icon: Bot, run: onNewTab },
+    // downstream: the strip's + asks for the tab's kind already
+    ...(drivenByTests ? [{ id: "new-agent-tab", label: t("New tab with agent…"), icon: Bot, run: onNewTab }] : []),
     { id: "rename-tab", label: t("Rename tab"), icon: Pencil, run: () => beginRename(tab) },
     { id: "close-tab", label: t("Close tab"), icon: X, danger: true, run: () => requestClose(tab) },
   ];
