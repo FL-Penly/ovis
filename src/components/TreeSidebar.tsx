@@ -31,6 +31,8 @@ import { openQuickTab } from "./QuickTabPicker.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { BackgroundBadge, displayPaneTitle } from "./Sidebar.tsx";
+import { windowLabel } from "../../shared/long-run.ts";
+import { useLongRunPanes } from "../lib/longRun.ts";
 import "./TreeSidebar.css";
 
 type Layout = "tree" | "classic";
@@ -185,6 +187,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const groups = useMemo(() => treeGroups(snapshot), [snapshot]);
+  const longRuns = useLongRunPanes(machine.id, useMemo(() => snapshot?.panes.filter((pane) => pane.agent === "claude").map((pane) => pane.pane_id) ?? [], [snapshot]));
   const status = (pane: PaneInfo): AgentStatus | undefined => online ? activity.status(machine.id, pane) : undefined;
   const copy = (text: string, said: string) => void copyText(text).then((ok) => {
     setCopied(ok ? said : t("Couldn't copy: the browser refused the clipboard"));
@@ -231,7 +234,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         {place && <small>{place} · {known === "blocked" ? t("Waits for your answer") : t("Finished, not seen yet")}</small>}
       </>, entry,
       // subagents and background commands still running: an agent at rest may still be waiting on them
-      <BackgroundBadge count={online ? pane.background_tasks : 0} />);
+      <>{longRuns[pane.pane_id] && <span className="tree-long-run" title={t("Compacts at {size} tokens (long run)", { size: windowLabel(longRuns[pane.pane_id]!) })}>{windowLabel(longRuns[pane.pane_id]!)}</span>}
+        <BackgroundBadge count={online ? pane.background_tasks : 0} /></>);
   };
 
   const terminalRow = (pane: PaneInfo) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null);

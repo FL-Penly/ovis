@@ -328,3 +328,16 @@
 @media (hover: none) and (pointer: coarse) {
   .tree-layout-toggle:active { background: var(--side-hover); opacity: 1; }
 }
+
+/* a long run's compact window (lib/longRun.ts), quieter than the state */
+.tree-long-run {
+  flex: 0 0 auto;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+}

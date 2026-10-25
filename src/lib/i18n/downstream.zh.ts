@@ -139,4 +139,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Nothing sent from the input line yet": "还没有从输入框发送过内容",
   "Paste into the line": "粘贴到输入框",
   "Phone terminal keys": "终端按键",
+  "long run {size}": "长程 {size}",
+  "Compacts at {size} tokens (long run)": "长程会话：上下文到 {size} token 才压缩",
 };

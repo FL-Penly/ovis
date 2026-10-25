@@ -139,4 +139,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Nothing sent from the input line yet": "아직 입력 줄에서 보낸 것이 없습니다",
   "Paste into the line": "입력 줄에 붙여넣기",
   "Phone terminal keys": "터미널 키",
+  "long run {size}": "장시간 {size}",
+  "Compacts at {size} tokens (long run)": "장시간 세션: {size} 토큰까지 압축하지 않음",
 };

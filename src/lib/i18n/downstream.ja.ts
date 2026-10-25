@@ -139,4 +139,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Nothing sent from the input line yet": "入力行からはまだ何も送っていません",
   "Paste into the line": "入力行に貼り付け",
   "Phone terminal keys": "端末キー",
+  "long run {size}": "長時間 {size}",
+  "Compacts at {size} tokens (long run)": "長時間セッション：{size} トークンまで圧縮しません",
 };
