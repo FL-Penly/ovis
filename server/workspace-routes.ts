@@ -19,6 +19,7 @@ import { paneContext } from "./pane-context.ts";
 import { repoDiffResponse } from "./repo-diff.ts";
 import type { ShellAgentLocator } from "./shell-agent.ts";
 import { launchEnvFault } from "../shared/long-run.ts"; // downstream: DOWNSTREAM.md
+import { handleSplitWith } from "./split-launch.ts"; // downstream: DOWNSTREAM.md
 
 /** `value` as an absolute path (`~` expanded) when it is a directory this user can read; null otherwise. */
 export function expandedDirectory(value: string): string | null {
@@ -41,6 +42,7 @@ export async function handleWorkspaceRequest(request: Request, url: URL, pathnam
   queueFirstMessage: (paneId: string, text: string, kind: string, requester: string | null, launchedPid: number | null) => Promise<PendingMessage>,
   /** a move herdr confirmed: its receipt in this server's order (server/order-sequence.ts), taken at once */
   workspaceMoved: () => MoveReceipt, shellAgents?: ShellAgentLocator): Promise<Response | null> {
+  if (pathname === "/api/pane/split-with") return handleSplitWith(request, pathname, bunServer, shellAgents); // downstream: a split runs the new tab list's pick
   if (pathname === "/api/workspace/directories" && request.method === "POST") {
     setRequestRoute(pathname);
     let payload: unknown;

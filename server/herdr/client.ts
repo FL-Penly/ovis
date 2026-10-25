@@ -749,6 +749,11 @@ export async function paneFocus(paneId: string, socketPath?: string): Promise<vo
  * A new pane beside `paneId` (herdr's prefix+v / prefix+-), answered as herdr's snapshot lists it.
  * herdr's focus stays where it is unless `focus` asks for the new pane, as its --focus does.
  */
+/** downstream (server/split-launch.ts): a split with an environment of its own, a long run's window */
+export async function paneSplitWithEnv(paneId: string, direction: SplitPaneDirection, env: Record<string, string> | undefined, socketPath?: string): Promise<PaneInfo> {
+  return (await herdrRpc<{ pane: PaneInfo }>("pane.split", { target_pane_id: paneId, direction, focus: false, ...(env ? { env } : {}) }, socketPath)).pane;
+}
+
 export async function paneSplit(paneId: string, direction: SplitPaneDirection, focus: boolean, socketPath?: string): Promise<PaneInfo> {
   const result = await herdrRpc<{ pane: PaneInfo }>("pane.split", { target_pane_id: paneId, direction, focus }, socketPath);
   return result.pane;

@@ -3,7 +3,8 @@
  * terminal first and then the PC's installed agents; a pick opens a tab in the workspace running it,
  * with the agent's own defaults (no model, level or first message) and Settings' launch mode. The
  * full dialog stays in the workspace's menu for anything more. On this PC, Claude Code has a second
- * row, a long run: the same start with a wider compact window (shared/long-run.ts).
+ * row, a long run: the same start with a wider compact window (shared/long-run.ts). A split of a pane
+ * on this PC asks the same list, and runs the pick in the new pane.
  */
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
@@ -20,7 +21,8 @@ import { useFocusTrap } from "../lib/useFocusTrap.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import "./QuickTabPicker.css";
 
-type Target = { machineId: string; workspaceId: string } | undefined;
+/** `split`: the list asks what a split of that pane runs instead of a new tab (this PC only, lib/splitLaunch.ts) */
+type Target = { machineId: string; workspaceId: string; split?: { paneId: string; direction: "right" | "down" } } | undefined;
 type Option = AgentKind & { long?: true };
 
 let request: { target: Target; seq: number } | null = null;
@@ -69,7 +71,13 @@ function Picker({ target, local, actions, onClose }: { target: Target; local: bo
     if (pending !== null) return;
     setPending(option.label);
     setError(null);
-    actions.openTerminalTab(target, option.kind ? launchAgent(option.kind, settings) : null, option.long ? { [LONG_RUN_ENV]: String(LONG_RUN_WINDOW) } : undefined).then(onClose, (reason: unknown) => {
+    const agent = option.kind ? launchAgent(option.kind, settings) : null;
+    const env = option.long ? { [LONG_RUN_ENV]: String(LONG_RUN_WINDOW) } : undefined;
+    const split = target?.split;
+    const opened = split && actions.openSplit
+      ? actions.openSplit({ machineId: target.machineId, paneId: split.paneId, direction: split.direction }, agent, env)
+      : actions.openTerminalTab(target, agent, env);
+    opened.then(onClose, (reason: unknown) => {
       setPending(null);
       setError(reason instanceof ApiError ? reason.detail : reason instanceof Error ? reason.message : String(reason));
     });
@@ -97,7 +105,7 @@ function Picker({ target, local, actions, onClose }: { target: Target; local: bo
   return createPortal(
     <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div ref={surface} className="modal quick-tab" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}>
-        <h2 className="quick-tab-title" id={`${id}-title`}>{t("New tab")}</h2>
+        <h2 className="quick-tab-title" id={`${id}-title`}>{target?.split ? t(target.split.direction === "right" ? "Split it to the right" : "Split it below") : t("New tab")}</h2>
         <div className="quick-tab-list" role="listbox" aria-labelledby={`${id}-title`} aria-activedescendant={`${id}-${active}`}>
           {options.map((option, at) => <button key={`${option.kind || "terminal"}${option.long ? ":long" : ""}`} ref={(row) => { rows.current[at] = row; }} id={`${id}-${at}`} type="button" role="option" aria-selected={at === active}
             className={`quick-tab-option${at === active ? " is-active" : ""}`} disabled={pending !== null}

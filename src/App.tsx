@@ -90,6 +90,7 @@ import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstrea
 import { GitPanel, GitPanelButton, gitPanelMenuItem } from "./components/GitPanel.tsx"; // downstream
 import { useGitPanelOpen } from "./lib/gitPanel.ts"; // downstream
 import { QuickTabPicker, openQuickTab } from "./components/QuickTabPicker.tsx"; // downstream
+import { splitPaneWith } from "./lib/splitLaunch.ts"; // downstream
 import { drivenByTests } from "./lib/upstreamTests.ts"; // downstream
 
 const APP_TITLE = "Ovis";
@@ -372,6 +373,12 @@ export function App() {
         setNewSessionMachineId(machineId);
         setNewTab({ workspaceId: workspace.workspace_id, workspaceLabel: workspace.label, cwd, number: workspace.tab_count + 1 });
         setNewSessionOpen(true);
+      },
+      openSplit: async (target, agent = null, env) => { // downstream: a split runs the new tab list's pick
+        const asked = selectionRef.current;
+        const made = await splitPaneWith(target.paneId, target.direction, agent, env);
+        void load();
+        if (selectionStill(asked, selectionRef.current)) selectTargetRef.current(target.machineId, made.pane_id);
       },
       openTerminalTab: async (target, agent = null, env) => { // downstream: agent, env
         const found = newTabTarget(target);
