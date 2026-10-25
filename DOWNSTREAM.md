@@ -19,7 +19,8 @@ is on screen. The model and effort label is a button: it sends `/model`, whose p
 **herdr-web's sidebar.** On top, Start a session and **Waiting on you** (its count; it narrows the list to
 agents with an open question or an answer not seen yet). Under Sessions, every workspace is a group head (fold,
 branch, a + that asks what the new tab runs, as ⌘T does, and while folded the dot of the agent that most asks for a look) over its agents, each
-with herdr-web's state dot, its mark and its title; plain terminals join their workspaces when the list's
+with herdr-web's state dot, its mark, its title and the count of its background tasks still running (upstream's
+`background_tasks`: subagents and background commands, which an agent at rest may still be waiting on); plain terminals join their workspaces when the list's
 terminal switch is on, and one button folds or unfolds them all. The workspaces that run no agent (agent-board's
 Board and Wake, a spare shell) wait under the rest in a **Terminals only** group, folded until opened: one line
 each, which opens the pane last viewed there; the group stays open, and the line lit with its tabs beneath it,
@@ -51,8 +52,10 @@ repository around the pane's folder: the branch (a press switches to another or 
 ahead and behind counts, fetch, pull and push (a branch with no upstream is published to origin); the commit
 message with Commit (⌘↵; with nothing staged every change goes in, as VS Code's smart commit), Commit & Push and
 Amend; Merge Changes, Staged Changes and the unstaged ones, each file with stage, unstage or discard (a confirm
-first) and a press that opens it in upstream's diff viewer; and the commit graph, drawn in SVG lanes, where a
-commit lists its files. Git runs as argv with no prompt, editor or ssh question to wait on; git's own words show
+first); and the commit graph, drawn in SVG lanes, where a commit lists its files. A press on a file, changed or
+in a commit, opens its change under the row (one column, wrapped, a line of context, upstream's RepoDiff in a
+box as tall as the change, 60% of the screen at most) and a second press closes it, one file at a time; the
+row's other button opens it in upstream's diff viewer. Git runs as argv with no prompt, editor or ssh question to wait on; git's own words show
 when it refuses. Docked last in the row from 980px, over the pane below that; on a phone (below 769px) it is
 in the header's ⋯ menu, under Browse files.
 

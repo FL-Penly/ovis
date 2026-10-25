@@ -6,13 +6,18 @@
  * stage, unstage or discard; then the commit graph, where a commit opens its files. A file opens
  * in the app's own diff viewer. It reads the status every few seconds while it is shown.
  */
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CloudDownload, CloudUpload, GitBranch, GitCommitHorizontal, Minus, Plus, RefreshCw, Undo2, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { trimPatchContext } from "@pierre/diffs";
+import { ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CloudDownload, CloudUpload, GitBranch, GitCommitHorizontal, Maximize2, Minus, Plus, RefreshCw, Undo2, X } from "lucide-react";
 import type { GitBranch as Branch, GitChange, GitCommit, GitStatus } from "../../shared/git-panel.ts";
 import type { RepoDiffFile, RepoDiffScope } from "../../shared/protocol.ts";
 import { gitApi, GitRequestError, layoutGraph, splitPath, type GraphRow } from "../lib/gitPanel.ts";
 import { useT } from "../lib/i18n.ts";
 import { useMachineApi } from "../lib/machineContext.tsx";
+import { diffColorable, diffErrorMessage, unavailableMessage } from "../lib/repoDiff.ts";
+import { useSettings } from "../lib/settings.ts";
+import { FOLDED_CONTEXT_LINES } from "./RepoDiff.tsx";
+import { RenderBoundary } from "./RenderBoundary.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import "./GitPanel.css";
@@ -24,6 +29,49 @@ const ROW_PX = 26;
 const LANE_COLORS = ["#4ea1ff", "#e5534b", "#57ab5a", "#c69026", "#b083f0", "#39c5cf", "#e275ad", "#8b949e"];
 
 export interface GitDiffRequest { scope: RepoDiffScope; base: string | null; head: string | null; path: string; oldPath: string | null }
+
+const RepoDiff = lazy(() => import("./RepoDiff.tsx"));
+
+/** The rows RepoDiff draws for a patch: its lines from the first hunk on, each hunk's separator two rows high, and one for the box's padding. */
+export function shownRows(patch: string): number {
+  const lines = patch.split("\n");
+  const body = lines.slice(Math.max(0, lines.findIndex((line) => line.startsWith("@@"))));
+  const hunks = body.filter((line) => line.startsWith("@@")).length;
+  const drawn = body.filter((line) => line !== "" && !line.startsWith("@@") && !line.startsWith("\\")).length;
+  return drawn + hunks * 2 + 1;
+}
+
+/**
+ * A file's change under its row in the panel: one column, wrapped, each change with a line of
+ * context, in a box as tall as the change (60% of the screen at most) that scrolls by itself. The
+ * row's other button opens the full viewer.
+ */
+function InlineDiff({ paneId, directory, request }: { paneId: string; directory: string | null; request: GitDiffRequest }) {
+  const t = useT();
+  const { resolvedEntry } = useSettings();
+  const { fetchRepoDiffFile } = useMachineApi();
+  const [shown, setShown] = useState<{ patch: string | null; note: string | null } | null>(null);
+  const { scope, base, head, path, oldPath } = request;
+  useEffect(() => {
+    let live = true;
+    setShown(null);
+    fetchRepoDiffFile({ paneId, directory, scope, base, head, comparison: null }, path, oldPath).then(
+      (answer) => { if (live) setShown({ patch: answer.patch, note: unavailableMessage(t, answer) }); },
+      (error: unknown) => { if (live) setShown({ patch: null, note: diffErrorMessage(t, error) }); },
+    );
+    return () => { live = false; };
+  }, [fetchRepoDiffFile, paneId, directory, scope, base, head, path, oldPath, t]);
+  if (shown === null) return <p className="git-empty git-inline-note" role="status">{t("Reading the change…")}</p>;
+  if (shown.note !== null || shown.patch === null) return <p className="git-empty git-inline-note">{shown.note ?? t("No lines changed here.")}</p>;
+  const rows = shownRows(trimPatchContext(shown.patch, FOLDED_CONTEXT_LINES));
+  return <div className="git-inline-diff" style={{ height: `min(60vh, calc(${rows} * var(--fs-xs) * var(--lh-base)))` }}>
+    <RenderBoundary resetKey={shown.patch} fallback={() => <p className="git-empty git-inline-note" role="alert">{t("This change can't be shown here.")}</p>}>
+      <Suspense fallback={<p className="git-empty git-inline-note" role="status">{t("Reading the change…")}</p>}>
+        <RepoDiff patch={shown.patch} style="unified" folded wrap theme={resolvedEntry.mode} colored={diffColorable(path, shown.patch)} />
+      </Suspense>
+    </RenderBoundary>
+  </div>;
+}
 
 type Op = "stage" | "unstage" | "discard" | "commit" | "push" | "pull" | "fetch" | "checkout";
 type Discard = { tracked: string[]; untracked: string[]; label: string };
@@ -43,6 +91,8 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
   const [branches, setBranches] = useState<{ anchor: HTMLElement; list: Branch[] } | null>(null);
   const [commitMenu, setCommitMenu] = useState<HTMLElement | null>(null);
   const [discard, setDiscard] = useState<Discard | null>(null);
+  // the one file whose change is open under its row, by where it was listed
+  const [expanded, setExpanded] = useState<string | null>(null);
   const headSeen = useRef<string | null | undefined>(undefined);
 
   const loadLog = useCallback(async (skip: number) => {
@@ -66,7 +116,7 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
 
   useEffect(() => {
     headSeen.current = undefined;
-    setStatus(null); setCommits([]); setOpened(null); setNote(null);
+    setStatus(null); setCommits([]); setOpened(null); setNote(null); setExpanded(null);
     void refresh();
     const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, POLL_MS);
     return () => window.clearInterval(timer);
@@ -124,17 +174,25 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
   const graphWidth = useMemo(() => Math.max(1, ...graph.map((row) => row.width)), [graph]);
   const toggle = (key: string) => setFolded((before) => { const next = new Set(before); if (next.has(key)) next.delete(key); else next.add(key); return next; });
 
+  const toggleDiff = (key: string) => setExpanded((open) => open === key ? null : key);
+  const fullView = (request: GitDiffRequest) => <button type="button" className="git-icon" title={t("Open in the diff viewer")} aria-label={t("Open in the diff viewer")}
+    onClick={() => onOpenDiff(request)}><Maximize2 aria-hidden="true" /></button>;
+
   const fileRow = (change: GitChange, side: "staged" | "changes" | "conflicts") => {
     const { name, folder } = splitPath(change.path);
     const untracked = change.kind === "?";
     const scope: RepoDiffScope = side === "staged" ? "staged" : "workspace";
-    return <li key={`${side}:${change.path}`} className="git-file">
-      <button type="button" className="git-file-main" title={change.old_path ? `${change.old_path} → ${change.path}` : change.path}
-        onClick={() => onOpenDiff({ scope, base: null, head: null, path: change.path, oldPath: change.old_path })}>
+    const key = `${side}:${change.path}`;
+    const request: GitDiffRequest = { scope, base: null, head: null, path: change.path, oldPath: change.old_path };
+    const open = expanded === key;
+    return <li key={key} className={`git-file-item${open ? " is-open" : ""}`}><div className="git-file">
+      <button type="button" className="git-file-main" aria-expanded={open} title={change.old_path ? `${change.old_path} → ${change.path}` : change.path}
+        onClick={() => toggleDiff(key)}>
         <span className="git-file-name">{name}</span>
         {folder && <span className="git-file-folder">{folder}</span>}
       </button>
       <span className="git-file-actions">
+        {fullView(request)}
         {side !== "staged" && <button type="button" className="git-icon" title={t("Discard changes")} aria-label={t("Discard changes")} disabled={busy !== null}
           onClick={() => setDiscard({ tracked: untracked ? [] : [change.path], untracked: untracked ? [change.path] : [], label: change.path })}><Undo2 aria-hidden="true" /></button>}
         {side === "staged"
@@ -142,7 +200,7 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
           : <button type="button" className="git-icon" title={t("Stage")} aria-label={t("Stage")} disabled={busy !== null} onClick={() => void run("stage", { paths: [change.path] })}><Plus aria-hidden="true" /></button>}
       </span>
       <span className={`git-kind is-${change.kind === "?" ? "untracked" : change.kind}`} title={kindWord(t, change.kind)}>{change.kind === "?" ? "U" : change.kind}</span>
-    </li>;
+    </div>{open && <InlineDiff paneId={paneId} directory={directory} request={request} />}</li>;
   };
 
   const section = (key: string, title: string, list: GitChange[], side: "staged" | "changes" | "conflicts", tools: ReactNode) => {
@@ -227,11 +285,18 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
               <ul className="git-files">
               {opened.base === null && <li className="git-empty">{t("The first commit: open its files from the terminal")}</li>}
               {opened.base !== null && opened.files === null && <li className="git-empty">{t("Reading the repository…")}</li>}
-              {opened.files?.map((file) => { const { name, folder } = splitPath(file.path); return <li key={file.path} className="git-file">
-                <button type="button" className="git-file-main" onClick={() => onOpenDiff({ scope: "commit", base: opened.base, head: row.commit.hash, path: file.path, oldPath: file.old_path })}>
-                  <span className="git-file-name">{name}</span>{folder && <span className="git-file-folder">{folder}</span>}
-                </button>
-              </li>; })}
+              {opened.files?.map((file) => {
+                const { name, folder } = splitPath(file.path);
+                const key = `commit:${row.commit.hash}:${file.path}`;
+                const request: GitDiffRequest = { scope: "commit", base: opened.base, head: row.commit.hash, path: file.path, oldPath: file.old_path };
+                const open = expanded === key;
+                return <li key={file.path} className={`git-file-item${open ? " is-open" : ""}`}><div className="git-file">
+                  <button type="button" className="git-file-main" aria-expanded={open} onClick={() => toggleDiff(key)}>
+                    <span className="git-file-name">{name}</span>{folder && <span className="git-file-folder">{folder}</span>}
+                  </button>
+                  <span className="git-file-actions">{fullView(request)}</span>
+                </div>{open && <InlineDiff paneId={paneId} directory={directory} request={request} />}</li>;
+              })}
             </ul>
             </div>}
           </div>)}

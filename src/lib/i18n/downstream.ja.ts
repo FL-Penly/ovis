@@ -117,4 +117,8 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Unstage all": "すべてステージ解除",
   "Unstaged Changes": "変更",
   "Untracked file": "追跡されていないファイル",
+  "Reading the change…": "変更を読み込んでいます…",
+  "No lines changed here.": "変更された行はありません。",
+  "This change can't be shown here.": "この変更はここでは表示できません。",
+  "Open in the diff viewer": "差分ビューアで開く",
 };
