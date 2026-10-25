@@ -23,7 +23,9 @@ in herdr's order, agents and plain terminals alike. A tab is its top-left pane's
 left to right, then down. An agent's row has herdr-web's state dot, its mark, its title and the count of its background tasks still
 running (upstream's `background_tasks`: subagents and background commands, which an agent at rest may still be waiting on); one
 button folds or unfolds every workspace. While this sidebar is drawn the tab strip is not (its rows are the tabs; a docked half keeps
-its grip): a tab's row moves the tab up or down, and any row splits its pane right or below. The workspaces that run no agent (agent-board's
+its grip): a tab's row moves the tab up or down, and any row splits its pane right or below. A left-press drag moves a workspace
+by its head among the others, or a tab by its row within its workspace (a line marks where it lands; dropped on
+the pane area, a row still opens in a half). The workspaces that run no agent (agent-board's
 Board and Wake, a spare shell) wait under the rest in a **Terminals only** group, folded until opened: one line
 each, which opens the pane last viewed there; the group stays open, and the line lit with its tabs beneath it,
 while it holds the open pane. A lone PC's header is not drawn. Right-click
@@ -38,7 +40,8 @@ starts on it.
 **Sticky prompt.** As in herdr-web, while you read an answer whose prompt has scrolled out of view, that prompt
 stays pinned over the top of the chat (two lines); a press scrolls back to it. It reads the minimap's turns.
 
-**Workspace and tab keys.** ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the
+**Workspace and tab keys.** ⌘↑ / ⌘↓ step to the previous / next row of the tree sidebar, across tabs and
+workspaces (a folded workspace is one stop; the classic sidebar: its previous / next workspace), ⌘← / ⌘→ to the
 previous / next tab of the open workspace (both wrap around; a terminal with no other tab keeps ⌘← / ⌘→ for its
 line), ⌘T asks what a new tab in that workspace runs, and ⌘W closes the open
 tab as its × does (a confirm first when an agent in it is at work or it is the workspace's last tab).

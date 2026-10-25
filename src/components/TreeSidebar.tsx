@@ -3,13 +3,14 @@
  * Needs you entry on top; then every workspace as a group head (its fold, its branch, a + for a new
  * tab, and while folded the dot of the agent that most asks for a look) over its tabs in herdr's
  * order, agents and terminals alike: a tab is its top-left pane's row, and the other panes of a split
- * tab hang under it (tabRows). The tab strip is not drawn while this sidebar is (TreeSidebar.css):
+ * tab hang under it (tabRows). A left-press drag moves a workspace by its head, or a tab by its row
+ * within its workspace; ⌘↑ / ⌘↓ step down the rows as drawn (sidebarRowPanes). The tab strip is not drawn while this sidebar is (TreeSidebar.css):
  * the rows are the tabs. A workspace with no agent waits folded in a Terminals only group under
  * the rest, opened by its head or while it holds the open pane. Needs you lists only the agents with an open question or an answer not
  * seen yet. MachineSidebar draws it in place of each PC's workspace list and the Agents list while
  * the layout is "tree"; the footer's layout button switches back to upstream's.
  */
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useMemo, useState, useSyncExternalStore, type DragEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Columns2, Copy, Ellipsis, History, Rows2, Send, Users, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
 import type { Machine } from "../../shared/machines.ts";
 import type { AgentStatus, HerdrTab, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
@@ -140,6 +141,35 @@ export function sidebarWorkspaceIds(snapshot: SessionSnapshot, selectedPaneId: s
   return [...withAgents, ...shown].map(({ workspace }) => workspace.workspace_id);
 }
 
+/**
+ * The panes ⌘↑ / ⌘↓ step through, in the order the rows are drawn: every row of an open workspace (a tab's
+ * head, then its split's panes), one stop for a folded one (the pane it opens on, which unfolds it), and
+ * the Terminals only group's lines while it shows them. Null for the classic sidebar.
+ */
+export function sidebarRowPanes(snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null): string[] | null {
+  if (state.layout !== "tree") return null;
+  const { withAgents, terminalsOnly } = splitGroups(treeGroups(snapshot));
+  const holds = (ids: ReadonlySet<string>): boolean => selectedPaneId !== null && ids.has(selectedPaneId);
+  const opensOn = (workspace: WorkspaceInfo, panes: readonly PaneInfo[]): string[] => {
+    const focused = snapshot.layouts?.find((layout) => layout.tab_id === workspace.active_tab_id)?.focused_pane_id;
+    const pane = frontPane(panes, lastViewedPane("workspace", machineId, workspace.workspace_id), focused);
+    return pane ? [pane.pane_id] : [];
+  };
+  const rows = (workspace: WorkspaceInfo, shown: ReadonlySet<string>): string[] =>
+    tabRows(snapshot, workspace.workspace_id, (pane) => shown.has(pane.pane_id) ? pane.pane_id : null).flatMap(({ head, under }) => [head, ...under]);
+  const stops = withAgents.flatMap(({ workspace, agents, terminals }) => {
+    const shown = new Set([...agents.map(({ pane }) => pane.pane_id), ...terminals.map((pane) => pane.pane_id)]);
+    const open = !state.folded.has(foldKey(machineId, workspace.workspace_id)) || holds(shown);
+    return open ? rows(workspace, shown) : opensOn(workspace, [...agents.map(({ pane }) => pane), ...terminals]);
+  });
+  for (const { workspace, terminals } of terminalsOnly) {
+    const shown = new Set(terminals.map((pane) => pane.pane_id));
+    if (holds(shown)) stops.push(...(terminals.length > 1 ? rows(workspace, shown) : opensOn(workspace, terminals)));
+    else if (state.terminalsOnlyOpen) stops.push(...opensOn(workspace, terminals));
+  }
+  return stops;
+}
+
 /** herdr-web's state dot: a spinner while it works, a ringed blue dot for a question, green for an answer not seen yet. */
 function StateDot({ status }: { status: KnownStatus | null }) {
   const t = useT();
@@ -210,6 +240,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const [closing, setClosing] = useState<{ pane: PaneInfo; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  // a drag in the list: a workspace by its head, a tab by its row, and where it would land
+  const [drag, setDrag] = useState<{ kind: "workspace" | "tab"; id: string; workspaceId: string } | null>(null);
+  const [drop, setDrop] = useState<{ id: string; after: boolean } | null>(null);
+  const endDrag = (): void => { setDrag(null); setDrop(null); };
   const groups = useMemo(() => treeGroups(snapshot), [snapshot]);
   const longRuns = useLongRunPanes(machine.id, useMemo(() => snapshot?.panes.filter((pane) => pane.agent === "claude").map((pane) => pane.pane_id) ?? [], [snapshot]));
   const status = (pane: PaneInfo): AgentStatus | undefined => online ? activity.status(machine.id, pane) : undefined;
@@ -238,7 +272,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         onDragStart={(event) => {
           event.dataTransfer.effectAllowed = "move";
           event.dataTransfer.setData(PANE_DRAG_TYPE, paneDragData({ machineId: machine.id, paneId: pane.pane_id }));
-        }}>
+          // a tab's own row also moves the tab among its workspace's; dropped on the pane area it still opens in a half
+          if (!under) setDrag({ kind: "tab", id: pane.tab_id, workspaceId: pane.workspace_id });
+        }}
+        onDragEnd={endDrag}>
         {lead}
         <span className="tree-row-name"><span className="tree-row-title">{title}</span>{extra}</span>
         {trail}
@@ -342,6 +379,35 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
           onClick={() => openQuickTab({ machineId: machine.id, workspaceId: workspace.workspace_id })}><Plus aria-hidden="true" /></button>
       </div>;
     };
+    // herdr's insert index counts the boundaries before the moved one is taken out (lib/tabOrder.ts)
+    const dropZone = (kind: "workspace" | "tab", id: string, workspaceId: string) => ({
+      onDragOver: (event: DragEvent<HTMLElement>) => {
+        if (!drag || drag.kind !== kind || drag.id === id || (kind === "tab" && drag.workspaceId !== workspaceId)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "move";
+        const box = event.currentTarget.getBoundingClientRect();
+        const after = event.clientY > box.top + box.height / 2;
+        if (drop?.id !== id || drop.after !== after) setDrop({ id, after });
+      },
+      onDragLeave: (event: DragEvent<HTMLElement>) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDrop((current) => current?.id === id ? null : current);
+      },
+      onDrop: (event: DragEvent<HTMLElement>) => {
+        if (!drag || drag.kind !== kind || drop?.id !== id) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const ids = kind === "workspace" ? snapshot.workspaces.map((entry) => entry.workspace_id)
+          : snapshot.tabs.filter((tab) => tab.workspace_id === workspaceId).map((tab) => tab.tab_id);
+        const from = ids.indexOf(drag.id);
+        const boundary = ids.indexOf(id) + (drop.after ? 1 : 0);
+        const moved = drag.id;
+        endDrag();
+        if (from < 0 || boundary === from || boundary === from + 1) return;
+        run(() => kind === "workspace" ? api.moveWorkspace(moved, boundary) : api.moveTab(moved, boundary));
+      },
+    });
+    const dropMark = (id: string): string => drop?.id === id ? (drop.after ? " is-drop-after" : " is-drop-before") : "";
     const agentGroups = withAgents.map(({ workspace, agents, terminals }) => {
       const agentOf = new Map(agents.map((entry) => [entry.pane.pane_id, entry]));
       const terminalIds = new Set(terminals.map((pane) => pane.pane_id));
@@ -353,8 +419,15 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       const holdsSelection = holds([...agents.map(({ pane }) => pane), ...terminals]);
       const open = !folded.has(key) || holdsSelection;
       const hot = open || !online ? null : hottest(agents.map(({ pane }) => status(pane)));
-      return <div key={workspace.workspace_id} className="tree-group" role="group" aria-label={workspace.label}>
-        {head(workspace, <button type="button" className="tree-toggle" aria-expanded={open} onClick={() => {
+      return <div key={workspace.workspace_id} className={`tree-group${dropMark(workspace.workspace_id)}`} role="group" aria-label={workspace.label}
+        {...dropZone("workspace", workspace.workspace_id, workspace.workspace_id)}>
+        {head(workspace, <button type="button" className="tree-toggle" aria-expanded={open} draggable={online}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("application/x-ovis-workspace", workspace.workspace_id);
+            setDrag({ kind: "workspace", id: workspace.workspace_id, workspaceId: workspace.workspace_id });
+          }}
+          onDragEnd={endDrag} onClick={() => {
           const next = new Set(folded);
           if (open) next.add(key); else next.delete(key);
           update({ folded: next });
@@ -365,7 +438,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
           {branchOf(workspace)}
         </button>)}
         {open && tabRows(snapshot, workspace.workspace_id, (pane) => agentOf.has(pane.pane_id) || terminalIds.has(pane.pane_id) ? pane : null)
-          .map(({ tab, head, under }) => <div key={tab.tab_id} className="tree-tab" role="group" aria-label={tabLabel(tab, t)}>
+          .map(({ tab, head, under }) => <div key={tab.tab_id} className={`tree-tab${dropMark(tab.tab_id)}`} role="group" aria-label={tabLabel(tab, t)}
+            {...dropZone("tab", tab.tab_id, workspace.workspace_id)}>
             {rowOf(false)(head)}{under.map(rowOf(true))}
           </div>)}
       </div>;
