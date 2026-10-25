@@ -89,7 +89,7 @@ import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTRE
 import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
 import { GitPanel, GitPanelButton, gitPanelMenuItem } from "./components/GitPanel.tsx"; // downstream
 import { useGitPanelOpen } from "./lib/gitPanel.ts"; // downstream
-import { QuickTabPicker } from "./components/QuickTabPicker.tsx"; // downstream
+import { QuickTabPicker, openQuickTab } from "./components/QuickTabPicker.tsx"; // downstream
 
 const APP_TITLE = "Ovis";
 /** how soon after a key press a focus counts as the user's own (lastKeyAtRef) */
@@ -751,7 +751,7 @@ export function App() {
                 {slotSnapshot && pane && workspace && (
                   <TabStrip snapshot={slotSnapshot} workspace={workspace} selectedPane={pane} panelId={slotPanelId} splitDrag={wideScreen} onSelectPane={onSelect} end={slotEnd}
                     onNewTab={() => actions.openNewTab(active ? undefined : { machineId, workspaceId: workspace.workspace_id })}
-                    onNewTerminal={() => actions.openTerminalTab(active ? undefined : { machineId, workspaceId: workspace.workspace_id })}
+                    onNewTerminal={async () => openQuickTab(active ? undefined : { machineId, workspaceId: workspace.workspace_id }) /* downstream: the + asks, as ⌘T */}
                     paneActions={active ? (paneId) => {
                       const target = snapshot?.panes.find((item) => item.pane_id === paneId);
                       if (!target || !paneActionsRef.current) return [];

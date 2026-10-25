@@ -60,7 +60,7 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "New tab in {name}": "在 {name} 新建标签页",
   "Looking for agents…": "正在查找 agent…",
   "Starting {agent}…": "正在启动 {agent}…",
-  "Enter opens · 1–9 picks · Esc closes": "回车打开 · 1–9 直选 · Esc 关闭",
+  "↑↓ to choose · Enter opens · Esc closes": "↑↓ 选择 · 回车打开 · Esc 关闭",
   "New terminal tab in {name}": "在 {name} 新建终端标签页",
   "Start an agent here…": "在这里启动 agent…",
   "Source Control": "源代码管理",

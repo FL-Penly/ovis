@@ -4,7 +4,7 @@
  * with the agent's own defaults (no model, level or first message) and Settings' launch mode. The
  * full dialog stays in the workspace's menu for anything more.
  */
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Terminal } from "lucide-react";
 import type { AgentKind } from "../../shared/agents.ts";
@@ -48,6 +48,7 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
   const [active, setActive] = useState(0);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const rows = useRef<(HTMLButtonElement | null)[]>([]);
   const surface = useFocusTrap<HTMLDivElement>(true);
   useEffect(() => {
     let live = true;
@@ -56,6 +57,8 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
     return () => { live = false; };
   }, [fetchAgentKinds]);
   const options: AgentKind[] = [{ kind: "", label: t("Terminal") }, ...(agents ?? [])];
+  // the focus sits on the highlighted row, so its ring and Enter name the same one
+  useEffect(() => { rows.current[active]?.focus(); }, [active, agents]);
 
   const pick = (option: AgentKind): void => {
     if (pending !== null) return;
@@ -77,7 +80,6 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
       else if (event.key === "ArrowDown") setActive((at) => (at + 1) % options.length);
       else if (event.key === "ArrowUp") setActive((at) => (at - 1 + options.length) % options.length);
       else if (event.key === "Enter") pick(options[active]!);
-      else if (/^[1-9]$/.test(event.key) && !event.metaKey && !event.ctrlKey && !event.altKey && Number(event.key) <= options.length) pick(options[Number(event.key) - 1]!);
       else handled = false;
       if (!handled) return;
       event.preventDefault();
@@ -92,18 +94,17 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
       <div ref={surface} className="modal quick-tab" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}>
         <h2 className="quick-tab-title" id={`${id}-title`}>{t("New tab")}</h2>
         <div className="quick-tab-list" role="listbox" aria-labelledby={`${id}-title`} aria-activedescendant={`${id}-${active}`}>
-          {options.map((option, at) => <button key={option.kind || "terminal"} id={`${id}-${at}`} type="button" role="option" aria-selected={at === active}
+          {options.map((option, at) => <button key={option.kind || "terminal"} ref={(row) => { rows.current[at] = row; }} id={`${id}-${at}`} type="button" role="option" aria-selected={at === active}
             className={`quick-tab-option${at === active ? " is-active" : ""}`} disabled={pending !== null}
             onMouseEnter={() => setActive(at)} onClick={() => pick(option)}>
             <span className="quick-tab-mark" aria-hidden="true">{option.kind ? <AgentMark agent={option.kind} size={16} /> : <Terminal />}</span>
             <span className="quick-tab-label">{option.label}</span>
-            {at < 9 && <kbd className="quick-tab-key">{at + 1}</kbd>}
           </button>)}
           {agents === null && <p className="quick-tab-note" role="status">{t("Looking for agents…")}</p>}
         </div>
         {pending !== null && <p className="quick-tab-note" role="status">{t("Starting {agent}…", { agent: pending })}</p>}
         {error !== null && <p className="quick-tab-error" role="alert">{error}</p>}
-        <p className="quick-tab-hint">{t("Enter opens · 1–9 picks · Esc closes")}</p>
+        <p className="quick-tab-hint">{t("↑↓ to choose · Enter opens · Esc closes")}</p>
       </div>
     </div>,
     document.body,
