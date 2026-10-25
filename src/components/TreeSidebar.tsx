@@ -22,6 +22,7 @@ import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
 import { paneMark, sidebarAgents, type SidebarAgent } from "../lib/sidebarAgents.ts";
 import { PANE_DRAG_TYPE, paneDragData } from "../lib/split.ts";
 import { useWorktreeBranches } from "../lib/useWorktreeBranches.ts";
+import { drivenByTests } from "../lib/upstreamTests.ts";
 import { frontPane } from "../lib/navShortcuts.ts";
 import { lastViewedPane } from "../lib/lastViewedPane.ts";
 import { tabLabel } from "../lib/tabName.ts";
@@ -49,7 +50,7 @@ function storedFolds(): Set<string> {
 let state: TreeState = {
   // the tree unless turned off; a browser driven by automation (upstream's browser tests, written for the
   // classic list) starts on the classic one, which a person's browser never does
-  layout: stored(LAYOUT_KEY) === "classic" || (stored(LAYOUT_KEY) === null && typeof navigator !== "undefined" && navigator.webdriver) ? "classic" : "tree",
+  layout: stored(LAYOUT_KEY) === "classic" || (stored(LAYOUT_KEY) === null && drivenByTests) ? "classic" : "tree",
   needsOnly: false,
   showTerminals: stored(TERMINALS_KEY) === "1",
   terminalsOnlyOpen: stored(TERMINALS_ONLY_KEY) === "1",

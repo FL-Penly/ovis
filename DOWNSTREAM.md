@@ -84,6 +84,7 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `src/components/StickyPrompt.tsx` (+ css, test) | The sticky prompt over the chat. |
 | `src/components/PhoneKeys.tsx` (+ css), `src/components/LineExtras.tsx` (+ css), `src/lib/phoneKeys.ts` (+ test), `src/lib/useDoubleTapKeyboard.ts` | The phone keys, the line's recent lines and phrases, and the double tap for the keyboard; `Key` and `Chevron` are exported from upstream's `KeyBar.tsx` for them. |
+| `src/lib/upstreamTests.ts` | `drivenByTests`: under upstream's browser scripts (`navigator.webdriver`) the classic sidebar, the strip's + and upstream's key bar stay upstream's. |
 | `src/components/QuickTabPicker.tsx` (+ css) | The new tab list; `openTerminalTab`'s `agent` (`src/lib/actions.ts`, `App.tsx`) runs the pick. |
 | `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `shared/git-panel.ts`, `server/git-panel.ts`, `server/git-panel-routes.ts` (+ test) | `/api/pane/git/{status,log,branches}` (GET) and `/api/pane/git/{stage,unstage,discard,commit,push,pull,fetch,checkout}` (POST). |
