@@ -214,7 +214,7 @@
   border: 1.6px solid var(--border);
   border-top-color: var(--text);
   box-shadow: none;
-  animation: tree-spin 0.9s linear infinite;
+  animation: tree-spin 0.9s steps(8) infinite;
 }
 
 .tree-dot.is-needs {
@@ -223,7 +223,7 @@
 }
 
 .tree-dot.is-done {
-  background: var(--status-done, #3fb950);
+  background: var(--status-done);
   box-shadow: none;
 }
 

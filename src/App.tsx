@@ -88,6 +88,7 @@ import { useAddressBar } from "./lib/useAddressBar.ts";
 import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
 import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
 import { GitPanel, GitPanelButton, gitPanelMenuItem } from "./components/GitPanel.tsx"; // downstream
+import { useGitPanelOpen } from "./lib/gitPanel.ts"; // downstream
 
 const APP_TITLE = "Ovis";
 /** how soon after a key press a focus counts as the user's own (lastKeyAtRef) */
@@ -451,7 +452,7 @@ export function App() {
 
   useShortcuts(actions, locked === false);
   useNavShortcuts(actions, snapshotRef, selectedMachineId, selectedPaneId, sidebarWorkspaceIds, locked === false); // downstream
-  const [gitOpen, setGitOpen] = useState(false); // downstream
+  const [gitOpen, setGitOpen] = useGitPanelOpen(); // downstream
 
   // The header's More menu: what used to be three buttons of its own. Each item is there under
   // the condition its button had. At phone width the palette's button gives its room to the

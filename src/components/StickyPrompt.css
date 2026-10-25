@@ -13,7 +13,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--bg-raised, var(--bg-panel));
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
+  box-shadow: var(--shadow-card);
   color: var(--text-dim);
   font: inherit;
   font-size: var(--fs-sm);
