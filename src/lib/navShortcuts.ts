@@ -1,7 +1,7 @@
 /**
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): herdr-style moves between workspaces and tabs.
  * ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the previous / next
- * tab of the open workspace, ⌘T opens a terminal tab in it and ⌘W closes the open tab (Ctrl+Alt in
+ * tab of the open workspace, ⌘T asks what a new tab in it runs (components/QuickTabPicker.tsx) and ⌘W closes the open tab (Ctrl+Alt in
  * place of ⌘ off a Mac, where Ctrl+arrows move by word). Both steps wrap around. In a text field with
  * text the arrows stay the field's (⌘← is the start of the line there); an empty field and the
  * terminal give them up, though a terminal with no other tab to step to keeps ⌘← / ⌘→ for the start
@@ -14,6 +14,7 @@ import type { AppActions } from "./actions.ts";
 import { rosterPanes } from "./dagPane.ts";
 import { lastViewedPane, rememberViewedPane } from "./lastViewedPane.ts";
 import { isMacPlatform, keepsKeyForText } from "./shortcuts.ts";
+import { openQuickTab } from "../components/QuickTabPicker.tsx";
 
 export type NavMove = "workspace-previous" | "workspace-next" | "tab-previous" | "tab-next" | "terminal-tab" | "close-tab";
 
@@ -53,7 +54,7 @@ export function useCloseTabKey(machineId: string): MutableRefObject<((tabId: str
 }
 
 /** The pane a workspace or tab opens on: the one last viewed there, else the one in front, else its first. */
-function frontPane(panes: readonly PaneInfo[], viewed: string | undefined, focused: string | null | undefined): PaneInfo | undefined {
+export function frontPane(panes: readonly PaneInfo[], viewed: string | undefined, focused: string | null | undefined): PaneInfo | undefined {
   const pick = (id: string | null | undefined) => (id ? panes.find((pane) => pane.pane_id === id) : undefined);
   return pick(viewed) ?? pick(focused) ?? panes.find((pane) => pane.focused) ?? panes[0];
 }
@@ -111,7 +112,7 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
       event.preventDefault();
       event.stopPropagation();
       if (event.repeat && (move === "terminal-tab" || move === "close-tab")) return;
-      if (move === "terminal-tab") { void actions.openTerminalTab().catch(() => { /* herdr refused: nothing opens */ }); return; }
+      if (move === "terminal-tab") { openQuickTab(); return; }
       if (!roster) return;
       if (move === "close-tab") {
         const tabId = roster.panes.find((pane) => pane.pane_id === selectedPaneId)?.tab_id;

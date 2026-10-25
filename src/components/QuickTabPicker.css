@@ -1,0 +1,91 @@
+/* Downstream (FL-Penly/ovis, DOWNSTREAM.md): the new tab list (QuickTabPicker.tsx). */
+.quick-tab {
+  width: min(100%, 340px);
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+
+.quick-tab:focus {
+  outline: none;
+}
+
+.quick-tab-title {
+  margin: 0 var(--space-2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.quick-tab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.quick-tab-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: start;
+  cursor: pointer;
+}
+
+.quick-tab-option.is-active {
+  background: var(--side-hover);
+}
+
+.quick-tab-option:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.quick-tab-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.quick-tab-mark svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+}
+
+.quick-tab-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-tab-key {
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.quick-tab-note,
+.quick-tab-hint,
+.quick-tab-error {
+  margin: 0 var(--space-2);
+  font-size: var(--fs-xs);
+}
+
+.quick-tab-note,
+.quick-tab-hint {
+  color: var(--text-dim);
+}
+
+.quick-tab-error {
+  color: var(--status-blocked);
+  overflow-wrap: anywhere;
+}

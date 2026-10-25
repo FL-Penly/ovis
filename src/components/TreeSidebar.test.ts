@@ -1,7 +1,7 @@
 // Downstream (FL-Penly/ovis, DOWNSTREAM.md): the tree sidebar's grouping (TreeSidebar.tsx).
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
-import { hottest, needsYou, treeGroups } from "./TreeSidebar.tsx";
+import { hottest, needsYou, sidebarWorkspaceIds, splitGroups, treeGroups } from "./TreeSidebar.tsx";
 
 const workspace = (id: string): WorkspaceInfo => ({ workspace_id: id, active_tab_id: `${id}:t1`, label: id.toUpperCase(), number: 1, tab_count: 1, pane_count: 1, focused: false, agent_status: "idle" });
 const pane = (id: string, workspaceId: string, agent?: string): HerdrPane => ({ pane_id: id, workspace_id: workspaceId, tab_id: `${workspaceId}:t1`, terminal_id: `${id}:term`, revision: 1, focused: false, agent_status: "idle", ...(agent ? { agent } : {}) });
@@ -32,6 +32,21 @@ describe("treeGroups", () => {
 
   it("has nothing to show before the PC's panes came in", () => {
     expect(treeGroups(null)).toEqual([]);
+  });
+});
+
+describe("splitGroups", () => {
+  const roster = snapshot(["dev1", "dev2", "dev3", "dev4"], [pane("p1", "dev1"), pane("p2", "dev2", "claude"), pane("p3", "dev3"), pane("p4", "dev4", "codex")]);
+
+  it("keeps the workspaces with an agent in herdr's order and puts the terminal-only ones apart, in theirs", () => {
+    const { withAgents, terminalsOnly } = splitGroups(treeGroups(roster));
+    expect(withAgents.map(({ workspace }) => workspace.workspace_id)).toEqual(["dev2", "dev4"]);
+    expect(terminalsOnly.map(({ workspace }) => workspace.workspace_id)).toEqual(["dev1", "dev3"]);
+  });
+
+  it("steps the keyboard over the agents' workspaces, then the folded group's only where the open pane is", () => {
+    expect(sidebarWorkspaceIds(roster, "p2")).toEqual(["dev2", "dev4"]);
+    expect(sidebarWorkspaceIds(roster, "p3")).toEqual(["dev2", "dev4", "dev3"]);
   });
 });
 

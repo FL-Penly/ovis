@@ -34,7 +34,7 @@ export interface AppActions {
    * A shell tab in the same workspace, at once and with no dialog, as herdr's own new tab: the
    * new pane opens unless another one was opened meanwhile. Rejects with herdr's refusal.
    */
-  openTerminalTab: (target?: { machineId: string; workspaceId: string }) => Promise<void>;
+  openTerminalTab: (target?: { machineId: string; workspaceId: string }, agent?: { kind: string; args?: string[] } | null) => Promise<void>; // downstream: `agent` runs in it (components/QuickTabPicker.tsx)
   /**
    * The earlier sessions of a workspace's folder (components/SessionHistory.tsx): the named
    * workspace's, listed for `agent` first (a pane's, or the row's), else the selected pane's
