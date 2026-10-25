@@ -18,25 +18,33 @@ is on screen. The model and effort label is a button: it sends `/model`, whose p
 
 **herdr-web's sidebar.** On top, Start a session and **Waiting on you** (its count; it narrows the list to
 agents with an open question or an answer not seen yet). Under Sessions, every workspace is a group head (fold,
-branch, a + that opens a terminal tab at once, and while folded the dot of the agent that most asks for a look) over its agents, each
+branch, a + that asks what the new tab runs, as ⌘T does, and while folded the dot of the agent that most asks for a look) over its agents, each
 with herdr-web's state dot, its mark and its title; plain terminals join their workspaces when the list's
-terminal switch is on, one button folds or unfolds them all, and another (on by default) hides the workspaces
-that run no agent, such as agent-board's Board and Wake. A lone PC's header is not drawn. Right-click
+terminal switch is on, and one button folds or unfolds them all. The workspaces that run no agent (agent-board's
+Board and Wake, a spare shell) wait under the rest in a **Terminals only** group, folded until opened: one line
+each, which opens the pane last viewed there; the group stays open, and the line lit with its tabs beneath it,
+while it holds the open pane. A lone PC's header is not drawn. Right-click
 (or ⋯) on a pane copies its ID, name, a dispatch command or dispatch instructions (as herdr-web's), renames
 or closes it, and a group head offers a terminal tab, an agent tab through upstream's New tab dialog, earlier sessions
 and rename. It replaces the
 workspace list and the Agents list; the footer's layout button switches back to upstream's (kept per browser),
 which keeps the rest of workspace management (worktrees, reorder, pins). Upstream's browser regression scripts
-(`scripts/*-regression.ts`) assume that classic layout.
+(`scripts/*-regression.ts`) assume that classic layout, so a browser driven by automation (`navigator.webdriver`)
+starts on it.
 
 **Sticky prompt.** As in herdr-web, while you read an answer whose prompt has scrolled out of view, that prompt
 stays pinned over the top of the chat (two lines); a press scrolls back to it. It reads the minimap's turns.
 
 **Workspace and tab keys.** ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the
-previous / next tab of the open workspace (both wrap around), ⌘T opens a terminal tab in that workspace, and ⌘W closes the open
+previous / next tab of the open workspace (both wrap around; a terminal with no other tab keeps ⌘← / ⌘→ for its
+line), ⌘T asks what a new tab in that workspace runs, and ⌘W closes the open
 tab as its × does (a confirm first when an agent in it is at work or it is the workspace's last tab).
 Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
 field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
+
+**New tab list.** ⌘T and a workspace's + list a terminal first, then the PC's installed agents; Enter opens the
+highlighted one (the terminal), 1–9 pick a row, Esc closes. An agent starts with its own defaults (no model, level
+or first message) and Settings' launch mode; the workspace's menu keeps upstream's full dialog.
 
 **Source Control.** A Git button beside Browse files (this PC's panes) opens a panel after VS Code's for the
 repository around the pane's folder: the branch (a press switches to another or creates one) and sync with its
@@ -63,6 +71,7 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `src/lib/i18n/downstream.{zh,ja,ko}.ts` | The strings of both. |
 | `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `src/components/StickyPrompt.tsx` (+ css, test) | The sticky prompt over the chat. |
+| `src/components/QuickTabPicker.tsx` (+ css) | The new tab list; `openTerminalTab`'s `agent` (`src/lib/actions.ts`, `App.tsx`) runs the pick. |
 | `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `shared/git-panel.ts`, `server/git-panel.ts`, `server/git-panel-routes.ts` (+ test) | `/api/pane/git/{status,log,branches}` (GET) and `/api/pane/git/{stage,unstage,discard,commit,push,pull,fetch,checkout}` (POST). |
 | `src/components/GitPanel.tsx` (+ css), `src/lib/gitPanel.ts` (+ test) | The panel, its requests and the graph's lanes. |

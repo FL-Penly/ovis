@@ -89,6 +89,7 @@ import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTRE
 import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
 import { GitPanel, GitPanelButton, gitPanelMenuItem } from "./components/GitPanel.tsx"; // downstream
 import { useGitPanelOpen } from "./lib/gitPanel.ts"; // downstream
+import { QuickTabPicker } from "./components/QuickTabPicker.tsx"; // downstream
 
 const APP_TITLE = "Ovis";
 /** how soon after a key press a focus counts as the user's own (lastKeyAtRef) */
@@ -371,11 +372,11 @@ export function App() {
         setNewTab({ workspaceId: workspace.workspace_id, workspaceLabel: workspace.label, cwd, number: workspace.tab_count + 1 });
         setNewSessionOpen(true);
       },
-      openTerminalTab: async (target) => {
+      openTerminalTab: async (target, agent = null) => { // downstream: agent
         const found = newTabTarget(target);
         if (!found) return;
         const asked = selectionRef.current;
-        const created = await createTab({ workspace_id: found.workspace.workspace_id, cwd: found.cwd, label: null, agent: null }, found.machineId);
+        const created = await createTab({ workspace_id: found.workspace.workspace_id, cwd: found.cwd, label: null, agent }, found.machineId);
         void load();
         // what the user went to while herdr answered is theirs to keep
         if (selectionStill(asked, selectionRef.current)) selectTargetRef.current(found.machineId, created.pane_id);
@@ -836,6 +837,7 @@ export function App() {
           onOpenDiff={(request) => openDiff({ machineId: selectedMachineId, paneId: selectedPane.pane_id, directory: selectedPane.foreground_cwd ?? selectedPane.cwd ?? null, comparison: null, ...request })} />}{/* downstream */}
       </div>
 
+      <QuickTabPicker actions={actions} machineId={selectedMachineId} />{/* downstream */}
       <MachineContext.Provider value={newSessionMachineId}><NewSessionDialog
         key={newSessionMachineId}
         machineName={machines.find((m) => m.id === newSessionMachineId)?.name ?? newSessionMachineId}
