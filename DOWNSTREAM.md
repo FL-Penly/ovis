@@ -43,6 +43,10 @@ tab as its × does (a confirm first when an agent in it is at work or it is the 
 Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
 field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
 
+**Tab menu.** The tab's menu leaves out New tab with agent…, since the strip's + asks what a new tab runs, and,
+on a tab of one pane, the pane's Close pane, since that pane closes with the tab (Close tab confirms the same
+cases). The sidebar's Start an agent here… still opens the full new tab dialog.
+
 **Phone keys.** On a touch screen the terminal keys are mobile-terminal's: three rows (Esc ^C ^L with the input
 line and Paste keys; Tab ⇧Tab Enter ⇧Enter and ↑; Combo keys and ← ↓ →), folded to one row on request (kept per
 browser). Combo keys opens a panel in their place: Ctrl, Alt and Shift stay on until pressed again, over a
@@ -95,7 +99,7 @@ the original was backtracked to the fork point. A rollout another pane was start
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
 `server/pane-routes.ts` (4 lines: fork and git), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
-`src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
+`src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). Not marked: the fork note at the top of `README.md` and `README.zh-CN.md`, and this fork's copyright line in
 `LICENSE` and the README's license section. `git diff upstream/main...main` shows the whole patch.
