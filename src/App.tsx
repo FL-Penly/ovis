@@ -373,11 +373,11 @@ export function App() {
         setNewTab({ workspaceId: workspace.workspace_id, workspaceLabel: workspace.label, cwd, number: workspace.tab_count + 1 });
         setNewSessionOpen(true);
       },
-      openTerminalTab: async (target, agent = null) => { // downstream: agent
+      openTerminalTab: async (target, agent = null, env) => { // downstream: agent, env
         const found = newTabTarget(target);
         if (!found) return;
         const asked = selectionRef.current;
-        const created = await createTab({ workspace_id: found.workspace.workspace_id, cwd: found.cwd, label: null, agent }, found.machineId);
+        const created = await createTab({ workspace_id: found.workspace.workspace_id, cwd: found.cwd, label: null, agent, ...(env ? { env } : {}) }, found.machineId);
         void load();
         // what the user went to while herdr answered is theirs to keep
         if (selectionStill(asked, selectionRef.current)) selectTargetRef.current(found.machineId, created.pane_id);

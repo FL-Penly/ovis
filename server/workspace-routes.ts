@@ -18,6 +18,7 @@ import { badRequest, conflictResponse, errorResponse, isJsonObject, jsonResponse
 import { paneContext } from "./pane-context.ts";
 import { repoDiffResponse } from "./repo-diff.ts";
 import type { ShellAgentLocator } from "./shell-agent.ts";
+import { launchEnvFault } from "../shared/long-run.ts"; // downstream: DOWNSTREAM.md
 
 /** `value` as an absolute path (`~` expanded) when it is a directory this user can read; null otherwise. */
 export function expandedDirectory(value: string): string | null {
@@ -103,7 +104,7 @@ export async function handleWorkspaceRequest(request: Request, url: URL, pathnam
     setRequestRoute(pathname);
     const inWorkspace = pathname === "/api/tab/create";
     if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
-    const payload = await readJsonObject<{ workspace_id?: unknown; cwd?: unknown; label?: unknown; agent?: { kind?: unknown; name?: unknown; args?: unknown } | null; first_message?: unknown; first_message_connection?: unknown }>(request);
+    const payload = await readJsonObject<{ workspace_id?: unknown; cwd?: unknown; label?: unknown; agent?: { kind?: unknown; name?: unknown; args?: unknown } | null; first_message?: unknown; first_message_connection?: unknown; env?: unknown }>(request);
     if (payload instanceof Response) return payload;
     if (inWorkspace && (typeof payload.workspace_id !== "string" || payload.workspace_id.trim() === "")) {
       return badRequest("missing_workspace_id", "workspace_id is required");
@@ -126,6 +127,8 @@ export async function handleWorkspaceRequest(request: Request, url: URL, pathnam
     }
     const fault = agentFault(payload.agent);
     if (fault !== null) return badRequest("invalid_agent", fault);
+    const envFault = launchEnvFault(payload.env); // downstream: a long run's compact window
+    if (envFault !== null) return badRequest("invalid_env", envFault);
     const messageFault = firstMessageFault(payload.first_message, payload.agent);
     if (messageFault !== null) return badRequest("invalid_first_message", messageFault);
     // the page connection that asked: the only one that may type the message on its own (server/core/pending.ts)
@@ -139,6 +142,7 @@ export async function handleWorkspaceRequest(request: Request, url: URL, pathnam
       const options = {
         ...(cwd === undefined || cwd === null ? {} : { cwd }),
         ...(typeof payload.label === "string" ? { label: payload.label } : {}),
+        ...(payload.env ? { env: payload.env as Record<string, string> } : {}), // downstream
       };
       const created = inWorkspace
         ? await tabCreate({ ...options, workspaceId: payload.workspace_id as string })

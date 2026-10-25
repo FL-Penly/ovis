@@ -11,6 +11,8 @@ export interface CreateWorkspaceRequest {
   cwd?: string | null;
   label?: string | null;
   agent?: { kind: string; name?: string; args?: string[] } | null;
+  /** downstream: the new pane's environment, a long run's compact window alone (shared/long-run.ts) */
+  env?: Record<string, string>;
   /**
    * the user's first message for the agent, sent by this request: the bridge queues it for the
    * agent's first ready turn through its pending path (server/core/pending.ts), where the pane's

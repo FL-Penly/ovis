@@ -2,12 +2,14 @@
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): what ⌘T and a tree workspace's + open. A short list, a
  * terminal first and then the PC's installed agents; a pick opens a tab in the workspace running it,
  * with the agent's own defaults (no model, level or first message) and Settings' launch mode. The
- * full dialog stays in the workspace's menu for anything more.
+ * full dialog stays in the workspace's menu for anything more. On this PC, Claude Code has a second
+ * row, a long run: the same start with a wider compact window (shared/long-run.ts).
  */
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Terminal } from "lucide-react";
 import type { AgentKind } from "../../shared/agents.ts";
+import { LONG_RUN_ENV, LONG_RUN_WINDOW, windowLabel } from "../../shared/long-run.ts";
 import type { AppActions } from "../lib/actions.ts";
 import { launchAgent } from "../lib/agentLaunchMode.ts";
 import { ApiError } from "../lib/api.ts";
@@ -19,6 +21,7 @@ import { AgentMark } from "./AgentMark.tsx";
 import "./QuickTabPicker.css";
 
 type Target = { machineId: string; workspaceId: string } | undefined;
+type Option = AgentKind & { long?: true };
 
 let request: { target: Target; seq: number } | null = null;
 let seq = 0;
@@ -35,11 +38,11 @@ export function QuickTabPicker({ actions, machineId }: { actions: AppActions; ma
   const open = useSyncExternalStore(subscribe, current, current);
   if (open === null) return null;
   return <MachineContext.Provider value={open.target?.machineId ?? machineId}>
-    <Picker key={open.seq} target={open.target} actions={actions} onClose={() => set(null)} />
+    <Picker key={open.seq} target={open.target} local={(open.target?.machineId ?? machineId) === "local"} actions={actions} onClose={() => set(null)} />
   </MachineContext.Provider>;
 }
 
-function Picker({ target, actions, onClose }: { target: Target; actions: AppActions; onClose(): void }) {
+function Picker({ target, local, actions, onClose }: { target: Target; local: boolean; actions: AppActions; onClose(): void }) {
   const t = useT();
   const id = useId();
   const { settings } = useSettings();
@@ -56,15 +59,17 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
     fetchAgentKinds().then((list) => { if (live) setAgents(list.filter((agent) => agent.installed !== false)); }, () => { if (live) setAgents([]); });
     return () => { live = false; };
   }, [fetchAgentKinds]);
-  const options: AgentKind[] = [{ kind: "", label: t("Terminal") }, ...(agents ?? [])];
+  // another PC runs upstream's bundle, which starts no tab with an environment of its own
+  const options: Option[] = [{ kind: "", label: t("Terminal") }, ...(agents ?? []).flatMap((agent): Option[] => local && agent.kind === "claude"
+    ? [agent, { ...agent, label: `${agent.label} · ${t("long run {size}", { size: windowLabel(LONG_RUN_WINDOW) })}`, long: true }] : [agent])];
   // the focus sits on the highlighted row, so its ring and Enter name the same one
   useEffect(() => { rows.current[active]?.focus(); }, [active, agents]);
 
-  const pick = (option: AgentKind): void => {
+  const pick = (option: Option): void => {
     if (pending !== null) return;
     setPending(option.label);
     setError(null);
-    actions.openTerminalTab(target, option.kind ? launchAgent(option.kind, settings) : null).then(onClose, (reason: unknown) => {
+    actions.openTerminalTab(target, option.kind ? launchAgent(option.kind, settings) : null, option.long ? { [LONG_RUN_ENV]: String(LONG_RUN_WINDOW) } : undefined).then(onClose, (reason: unknown) => {
       setPending(null);
       setError(reason instanceof ApiError ? reason.detail : reason instanceof Error ? reason.message : String(reason));
     });
@@ -94,7 +99,7 @@ function Picker({ target, actions, onClose }: { target: Target; actions: AppActi
       <div ref={surface} className="modal quick-tab" role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}>
         <h2 className="quick-tab-title" id={`${id}-title`}>{t("New tab")}</h2>
         <div className="quick-tab-list" role="listbox" aria-labelledby={`${id}-title`} aria-activedescendant={`${id}-${active}`}>
-          {options.map((option, at) => <button key={option.kind || "terminal"} ref={(row) => { rows.current[at] = row; }} id={`${id}-${at}`} type="button" role="option" aria-selected={at === active}
+          {options.map((option, at) => <button key={`${option.kind || "terminal"}${option.long ? ":long" : ""}`} ref={(row) => { rows.current[at] = row; }} id={`${id}-${at}`} type="button" role="option" aria-selected={at === active}
             className={`quick-tab-option${at === active ? " is-active" : ""}`} disabled={pending !== null}
             onMouseEnter={() => setActive(at)} onClick={() => pick(option)}>
             <span className="quick-tab-mark" aria-hidden="true">{option.kind ? <AgentMark agent={option.kind} size={16} /> : <Terminal />}</span>
