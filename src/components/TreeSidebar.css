@@ -341,3 +341,21 @@
   font-size: var(--fs-2xs);
   line-height: 1.4;
 }
+
+/* the tree's rows are the tabs: the strip steps aside while it is drawn (TreeSidebar.tsx markLayout);
+   a docked half keeps its own grip beside it */
+:root[data-sidebar-layout="tree"] .tab-strip { display: none; }
+
+/* a pane of a split tab, under the tab's first one */
+.tree-row.is-under { margin-left: calc(var(--space-1) + var(--space-4)); }
+.tree-row.is-under::before {
+  content: "";
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-3);
+  margin-right: calc(-1 * var(--space-1));
+  border-bottom: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  border-bottom-left-radius: var(--radius-sm);
+  transform: translateY(-25%);
+}

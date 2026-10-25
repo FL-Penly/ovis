@@ -32,8 +32,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Sessions": "セッション",
   "Fold every workspace": "すべて折りたたむ",
   "Unfold every workspace": "すべて展開",
-  "Show plain terminals": "ターミナルを表示",
-  "Hide plain terminals": "ターミナルを隠す",
   "Working": "実行中",
   "Waits for your answer": "回答待ち",
   "Finished, not seen yet": "完了・未確認",
@@ -141,4 +139,8 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Phone terminal keys": "端末キー",
   "long run {size}": "長時間 {size}",
   "Compacts at {size} tokens (long run)": "長時間セッション：{size} トークンまで圧縮しません",
+  "Move the tab up": "タブを上へ移動",
+  "Move the tab down": "タブを下へ移動",
+  "Split it to the right": "右に分割",
+  "Split it below": "下に分割",
 };

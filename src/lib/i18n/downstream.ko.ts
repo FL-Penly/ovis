@@ -32,8 +32,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Sessions": "세션",
   "Fold every workspace": "모두 접기",
   "Unfold every workspace": "모두 펼치기",
-  "Show plain terminals": "터미널 표시",
-  "Hide plain terminals": "터미널 숨기기",
   "Working": "실행 중",
   "Waits for your answer": "응답 대기",
   "Finished, not seen yet": "완료, 아직 안 봄",
@@ -141,4 +139,8 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Phone terminal keys": "터미널 키",
   "long run {size}": "장시간 {size}",
   "Compacts at {size} tokens (long run)": "장시간 세션: {size} 토큰까지 압축하지 않음",
+  "Move the tab up": "탭을 위로 이동",
+  "Move the tab down": "탭을 아래로 이동",
+  "Split it to the right": "오른쪽으로 분할",
+  "Split it below": "아래로 분할",
 };
