@@ -410,6 +410,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     {copied && <p className="tree-copied" role="status">{copied}</p>}
     {menu && <RowMenu anchor={menu.anchor} point={menu.point} title={menu.kind === "workspace" ? menu.workspace.label : menu.title} onClose={() => setMenu(null)} items={menuItems(menu)} />}
     {closing && <ConfirmDialog title={t("Close the pane")} body={t("Closes {title} and ends what runs in it.", { title: closing.title })} confirmLabel={t("Close the pane")}
-      onConfirm={() => api.closePane(closing.pane.pane_id)} onClose={() => setClosing(null)} />}
+      // the dialog stays until its caller drops it: a confirmed close drops it here
+      onConfirm={async () => { await api.closePane(closing.pane.pane_id); setClosing(null); }} onClose={() => setClosing(null)} />}
   </div>;
 }
