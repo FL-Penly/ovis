@@ -127,7 +127,7 @@ const PART_FILES: Record<string, string[]> = {
   usage: ["components/UsageSettings.tsx", "components/UsageAccountDialog.tsx", "components/UsageLocalLogin.tsx", "components/UsageHubConnect.tsx", "components/CLIProxyLogin.tsx", "components/UsageMeters.tsx", "lib/usage.ts"],
   updates: ["components/UpdateControls.tsx", "lib/updateProgress.ts"],
   palette: ["components/CommandPalette.tsx"],
-  downstream: ["components/ForkButton.tsx", "components/ModeChip.tsx", "components/TreeSidebar.tsx", "components/StickyPrompt.tsx", "components/GitPanel.tsx", "components/QuickTabPicker.tsx"], // downstream
+  downstream: ["components/ForkButton.tsx", "components/ModeChip.tsx", "components/TreeSidebar.tsx", "components/StickyPrompt.tsx", "components/GitPanel.tsx", "components/QuickTabPicker.tsx", "components/PhoneKeys.tsx", "components/LineExtras.tsx"], // downstream
 };
 
 /** Parts in src/lib/i18n/ hold the keys only one feature uses; the base dictionary holds the rest. */

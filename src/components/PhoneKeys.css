@@ -1,0 +1,92 @@
+/* Downstream (FL-Penly/ovis, DOWNSTREAM.md): the phone keys (PhoneKeys.tsx), in KeyBar.css's .key-bar
+   frame (shown on a touch screen, clear of the home indicator) with rows in place of its one row */
+.key-bar.phone-keys {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+  height: auto;
+  padding-block: var(--space-1);
+  overflow: visible;
+}
+
+.key-bar.phone-keys.is-at-screen-bottom {
+  height: auto;
+}
+
+.phone-keys-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.phone-keys-row.is-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.phone-keys-row.is-scroll::-webkit-scrollbar { display: none; }
+
+.phone-keys-spacer { flex: 1 1 auto; }
+
+.phone-keys-gap {
+  flex: none;
+  width: var(--hairline);
+  height: calc(var(--key-h) - var(--space-2));
+  margin-inline: var(--space-1);
+  background: var(--border);
+}
+
+.phone-keys .key { min-width: calc(var(--touch-target) - var(--space-1)); }
+
+.phone-keys-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 50dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.phone-keys-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-2xs);
+}
+
+.phone-keys-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.phone-keys-grid.is-letters { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+.phone-keys-grid.is-symbols { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+.phone-keys-grid.is-functions { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+.phone-keys-grid .key {
+  min-width: 0;
+  padding: 0;
+}
+
+.phone-keys-tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.phone-keys-tab {
+  flex: 1 1 0;
+  height: calc(var(--key-h) - var(--space-1));
+  border: var(--hairline) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+.phone-keys-tab.is-active {
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
