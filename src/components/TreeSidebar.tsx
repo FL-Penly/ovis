@@ -29,7 +29,7 @@ import { AgentMark } from "./AgentMark.tsx";
 import { openQuickTab } from "./QuickTabPicker.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
-import { displayPaneTitle } from "./Sidebar.tsx";
+import { BackgroundBadge, displayPaneTitle } from "./Sidebar.tsx";
 import "./TreeSidebar.css";
 
 type Layout = "tree" | "classic";
@@ -197,7 +197,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     setMenu({ ...target, anchor: event.currentTarget, ...(atPointer ? { point: { x: event.clientX, y: event.clientY } } : {}) });
   };
 
-  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, agent: SidebarAgent | null) => {
+  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, agent: SidebarAgent | null, trail: ReactNode = null) => {
     const terminal = agent === null;
     const selected = pane.pane_id === selectedPaneId;
     return <div key={pane.pane_id} className={`tree-row${selected ? " is-active" : ""}${terminal ? " is-terminal" : ""}`}
@@ -211,6 +211,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         }}>
         {lead}
         <span className="tree-row-name"><span className="tree-row-title">{title}</span>{extra}</span>
+        {trail}
       </button>
       <button type="button" className="tree-row-more" aria-label={t("Actions for {title}", { title })} aria-haspopup="menu"
         onClick={(event) => openMenu(event, { kind: "pane", pane, title, agent }, false)}><Ellipsis aria-hidden="true" /></button>
@@ -227,7 +228,9 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       <>
         {name && <span className="tree-row-agent-name">@{name}</span>}
         {place && <small>{place} · {known === "blocked" ? t("Waits for your answer") : t("Finished, not seen yet")}</small>}
-      </>, entry);
+      </>, entry,
+      // subagents and background commands still running: an agent at rest may still be waiting on them
+      <BackgroundBadge count={online ? pane.background_tasks : 0} />);
   };
 
   const terminalRow = (pane: PaneInfo) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null);

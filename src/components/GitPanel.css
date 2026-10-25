@@ -299,3 +299,19 @@
   cursor: pointer;
 }
 .git-more:hover { background: var(--bg-hover); color: var(--text); }
+
+/* a file's change open under its row (InlineDiff): the row stays lit while it is open */
+.git-file-item.is-open > .git-file { background: var(--bg-hover); }
+
+.git-inline-diff {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 2px var(--space-2) var(--space-2) 22px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.git-inline-note { padding-left: 22px; }

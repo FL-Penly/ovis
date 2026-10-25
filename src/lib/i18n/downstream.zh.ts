@@ -117,4 +117,8 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Unstage all": "全部取消暂存",
   "Unstaged Changes": "更改",
   "Untracked file": "未跟踪的文件",
+  "Reading the change…": "正在读取改动…",
+  "No lines changed here.": "这里没有改动的行。",
+  "This change can't be shown here.": "这个改动无法在这里显示。",
+  "Open in the diff viewer": "在 diff 查看器中打开",
 };

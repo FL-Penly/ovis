@@ -117,4 +117,8 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Unstage all": "모두 스테이지 취소",
   "Unstaged Changes": "변경 사항",
   "Untracked file": "추적되지 않는 파일",
+  "Reading the change…": "변경 사항을 읽는 중…",
+  "No lines changed here.": "변경된 줄이 없습니다.",
+  "This change can't be shown here.": "이 변경 사항은 여기에 표시할 수 없습니다.",
+  "Open in the diff viewer": "diff 뷰어에서 열기",
 };
