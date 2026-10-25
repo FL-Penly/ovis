@@ -1,7 +1,7 @@
 // Downstream (FL-Penly/ovis, DOWNSTREAM.md): the tree sidebar's grouping (TreeSidebar.tsx).
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
-import { hottest, needsYou, sidebarWorkspaceIds, splitGroups, treeGroups } from "./TreeSidebar.tsx";
+import { hottest, needsYou, sidebarWorkspaceIds, splitGroups, tabRows, treeGroups } from "./TreeSidebar.tsx";
 
 const workspace = (id: string): WorkspaceInfo => ({ workspace_id: id, active_tab_id: `${id}:t1`, label: id.toUpperCase(), number: 1, tab_count: 1, pane_count: 1, focused: false, agent_status: "idle" });
 const pane = (id: string, workspaceId: string, agent?: string): HerdrPane => ({ pane_id: id, workspace_id: workspaceId, tab_id: `${workspaceId}:t1`, terminal_id: `${id}:term`, revision: 1, focused: false, agent_status: "idle", ...(agent ? { agent } : {}) });
@@ -32,6 +32,36 @@ describe("treeGroups", () => {
 
   it("has nothing to show before the PC's panes came in", () => {
     expect(treeGroups(null)).toEqual([]);
+  });
+});
+
+describe("tabRows", () => {
+  const at = (id: string, tab: string): HerdrPane => ({ ...pane(id, "dev1", "claude"), tab_id: tab });
+  const rect = (x: number, y: number) => ({ x, y, width: 10, height: 10 });
+  const roster: SessionSnapshot = {
+    ...snapshot(["dev1"], [at("fork", "t1"), at("below", "t1"), at("solo", "t3"), at("first", "t1"), at("shell", "t2")]),
+    tabs: [
+      { tab_id: "t1", workspace_id: "dev1", label: "1", number: 3, pane_count: 3, focused: false, agent_status: "idle" },
+      { tab_id: "t2", workspace_id: "dev1", label: "2", number: 1, pane_count: 1, focused: false, agent_status: "idle" },
+      { tab_id: "t3", workspace_id: "dev1", label: "3", number: 2, pane_count: 1, focused: false, agent_status: "idle" },
+    ],
+    layouts: [{ tab_id: "t1", workspace_id: "dev1", focused_pane_id: "fork", zoomed: false, area: rect(0, 0), splits: [],
+      panes: [{ pane_id: "fork", focused: true, rect: rect(10, 0) }, { pane_id: "below", focused: false, rect: rect(10, 5) }, { pane_id: "first", focused: false, rect: rect(0, 0) }] }],
+  } as unknown as SessionSnapshot;
+
+  it("lists the tabs in herdr's row order (not by number), a split one as its top-left pane over the rest, left to right then down", () => {
+    expect(tabRows(roster, "dev1", (p) => p.pane_id).map(({ tab, head, under }) => [tab.tab_id, head, under])).toEqual([
+      ["t1", "first", ["fork", "below"]],
+      ["t2", "shell", []],
+      ["t3", "solo", []],
+    ]);
+  });
+
+  it("lets the next pane lead a tab whose first one is left out, and drops a tab with none left", () => {
+    expect(tabRows(roster, "dev1", (p) => p.pane_id === "first" || p.pane_id === "shell" ? null : p.pane_id).map(({ tab, head, under }) => [tab.tab_id, head, under])).toEqual([
+      ["t1", "fork", ["below"]],
+      ["t3", "solo", []],
+    ]);
   });
 });
 

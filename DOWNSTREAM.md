@@ -18,10 +18,12 @@ is on screen. The model and effort label is a button: it sends `/model`, whose p
 
 **herdr-web's sidebar.** On top, Start a session and **Waiting on you** (its count; it narrows the list to
 agents with an open question or an answer not seen yet). Under Sessions, every workspace is a group head (fold,
-branch, a + that asks what the new tab runs, as ⌘T does, and while folded the dot of the agent that most asks for a look) over its agents, each
-with herdr-web's state dot, its mark, its title and the count of its background tasks still running (upstream's
-`background_tasks`: subagents and background commands, which an agent at rest may still be waiting on); plain terminals join their workspaces when the list's
-terminal switch is on, and one button folds or unfolds them all. The workspaces that run no agent (agent-board's
+branch, a + that asks what the new tab runs, as ⌘T does, and while folded the dot of the agent that most asks for a look) over its tabs
+in herdr's order, agents and plain terminals alike. A tab is its top-left pane's row; the other panes of a split tab hang under it,
+left to right, then down. An agent's row has herdr-web's state dot, its mark, its title and the count of its background tasks still
+running (upstream's `background_tasks`: subagents and background commands, which an agent at rest may still be waiting on); one
+button folds or unfolds every workspace. While this sidebar is drawn the tab strip is not (its rows are the tabs; a docked half keeps
+its grip): a tab's row moves the tab up or down, and any row splits its pane right or below. The workspaces that run no agent (agent-board's
 Board and Wake, a spare shell) wait under the rest in a **Terminals only** group, folded until opened: one line
 each, which opens the pane last viewed there; the group stays open, and the line lit with its tabs beneath it,
 while it holds the open pane. A lone PC's header is not drawn. Right-click
@@ -43,7 +45,7 @@ tab as its × does (a confirm first when an agent in it is at work or it is the 
 Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
 field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
 
-**Tab menu.** The tab's menu leaves out New tab with agent…, since the strip's + asks what a new tab runs, and,
+**Tab menu** (the classic sidebar's strip). The tab's menu leaves out New tab with agent…, since the strip's + asks what a new tab runs, and,
 on a tab of one pane, the pane's Close pane, since that pane closes with the tab (Close tab confirms the same
 cases). The sidebar's Start an agent here… still opens the full new tab dialog.
 

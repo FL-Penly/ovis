@@ -32,8 +32,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Sessions": "会话",
   "Fold every workspace": "全部折叠",
   "Unfold every workspace": "全部展开",
-  "Show plain terminals": "显示普通终端",
-  "Hide plain terminals": "隐藏普通终端",
   "Working": "运行中",
   "Waits for your answer": "等你回答",
   "Finished, not seen yet": "已完成，未查看",
@@ -141,4 +139,8 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Phone terminal keys": "终端按键",
   "long run {size}": "长程 {size}",
   "Compacts at {size} tokens (long run)": "长程会话：上下文到 {size} token 才压缩",
+  "Move the tab up": "标签页上移",
+  "Move the tab down": "标签页下移",
+  "Split it to the right": "向右分屏",
+  "Split it below": "向下分屏",
 };

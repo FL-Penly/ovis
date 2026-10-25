@@ -1,17 +1,18 @@
 /**
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): the sidebar as herdr-web drew it. A New session and a
  * Needs you entry on top; then every workspace as a group head (its fold, its branch, a + for a new
- * tab, and while folded the dot of the agent that most asks for a look) over its agents, each with
- * a state dot, its mark and its title; plain terminals join their workspace when the list's
- * terminal switch is on. A workspace with no agent waits folded in a Terminals only group under
+ * tab, and while folded the dot of the agent that most asks for a look) over its tabs in herdr's
+ * order, agents and terminals alike: a tab is its top-left pane's row, and the other panes of a split
+ * tab hang under it (tabRows). The tab strip is not drawn while this sidebar is (TreeSidebar.css):
+ * the rows are the tabs. A workspace with no agent waits folded in a Terminals only group under
  * the rest, opened by its head or while it holds the open pane. Needs you lists only the agents with an open question or an answer not
  * seen yet. MachineSidebar draws it in place of each PC's workspace list and the Agents list while
  * the layout is "tree"; the footer's layout button switches back to upstream's.
  */
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import { BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Copy, Ellipsis, History, Send, Users, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Columns2, Copy, Ellipsis, History, Rows2, Send, Users, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
 import type { Machine } from "../../shared/machines.ts";
-import type { AgentStatus, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
+import type { AgentStatus, HerdrTab, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
 import type { AppActions } from "../lib/actions.ts";
 import { useT } from "../lib/i18n.ts";
 import { knownStatus, type KnownStatus } from "../lib/status.ts";
@@ -26,6 +27,7 @@ import { drivenByTests } from "../lib/upstreamTests.ts";
 import { frontPane } from "../lib/navShortcuts.ts";
 import { lastViewedPane } from "../lib/lastViewedPane.ts";
 import { tabLabel } from "../lib/tabName.ts";
+import { adjacentTabBoundary } from "../lib/tabOrder.ts";
 import { AgentMark } from "./AgentMark.tsx";
 import { openQuickTab } from "./QuickTabPicker.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
@@ -36,10 +38,9 @@ import { useLongRunPanes } from "../lib/longRun.ts";
 import "./TreeSidebar.css";
 
 type Layout = "tree" | "classic";
-interface TreeState { layout: Layout; needsOnly: boolean; showTerminals: boolean; terminalsOnlyOpen: boolean; folded: ReadonlySet<string> }
+interface TreeState { layout: Layout; needsOnly: boolean; terminalsOnlyOpen: boolean; folded: ReadonlySet<string> }
 
 const LAYOUT_KEY = "ovis-downstream:sidebar-layout";
-const TERMINALS_KEY = "ovis-downstream:sidebar-terminals";
 const TERMINALS_ONLY_KEY = "ovis-downstream:sidebar-terminals-only-open";
 const FOLD_KEY = "ovis-downstream:sidebar-folded";
 
@@ -54,17 +55,19 @@ let state: TreeState = {
   // classic list) starts on the classic one, which a person's browser never does
   layout: stored(LAYOUT_KEY) === "classic" || (stored(LAYOUT_KEY) === null && drivenByTests) ? "classic" : "tree",
   needsOnly: false,
-  showTerminals: stored(TERMINALS_KEY) === "1",
   terminalsOnlyOpen: stored(TERMINALS_ONLY_KEY) === "1",
   folded: storedFolds(),
 };
 const listeners = new Set<() => void>();
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 const current = (): TreeState => state;
+// the tab strip steps aside while the tree is drawn: its rows are the tabs (TreeSidebar.css)
+function markLayout(): void { if (typeof document !== "undefined") document.documentElement.dataset["sidebarLayout"] = state.layout; }
+markLayout();
 function update(next: Partial<TreeState>): void {
   state = { ...state, ...next };
+  markLayout();
   store(LAYOUT_KEY, state.layout);
-  store(TERMINALS_KEY, state.showTerminals ? "1" : "0");
   store(TERMINALS_ONLY_KEY, state.terminalsOnlyOpen ? "1" : "0");
   store(FOLD_KEY, JSON.stringify([...state.folded]));
   for (const listener of listeners) listener();
@@ -100,6 +103,30 @@ export function treeGroups(snapshot: SessionSnapshot | null): WorkspaceRows[] {
   }));
 }
 
+/** A tab in the sidebar: its top-left pane's row, and the other panes of a split under it. */
+export interface TabRows<T> { tab: HerdrTab; head: T; under: T[] }
+
+/**
+ * A workspace's rows in herdr's tab order. A tab's panes go left to right, then top to bottom, as its
+ * layout places them; `shown` maps a pane to its row, or null for one the list leaves out (a DAG
+ * viewer beside its pane), and a tab with no row left is dropped.
+ */
+export function tabRows<T>(snapshot: SessionSnapshot, workspaceId: string, shown: (pane: PaneInfo) => T | null): TabRows<T>[] {
+  // herdr lists a workspace's tabs in their row's order; a tab's number is not its place
+  const tabs = snapshot.tabs.filter((tab) => tab.workspace_id === workspaceId);
+  return tabs.flatMap((tab) => {
+    const rects = new Map((snapshot.layouts?.find((layout) => layout.tab_id === tab.tab_id)?.panes ?? []).map((entry) => [entry.pane_id, entry.rect]));
+    const place = (pane: PaneInfo): [number, number] => { const rect = rects.get(pane.pane_id); return rect ? [rect.y, rect.x] : [Infinity, Infinity]; };
+    const panes = snapshot.panes.filter((pane) => pane.tab_id === tab.tab_id)
+      .map((pane, at) => ({ pane, at })).sort((one, other) => {
+        const [y1, x1] = place(one.pane); const [y2, x2] = place(other.pane);
+        return y1 - y2 || x1 - x2 || one.at - other.at;
+      });
+    const rows = panes.flatMap(({ pane }) => { const row = shown(pane); return row === null ? [] : [row]; });
+    return rows.length === 0 ? [] : [{ tab, head: rows[0]!, under: rows.slice(1) }];
+  });
+}
+
 /** The workspaces with an agent first, then the Terminals only group's, which it holds out of sight while folded. */
 export function splitGroups(groups: readonly WorkspaceRows[]): { withAgents: WorkspaceRows[]; terminalsOnly: WorkspaceRows[] } {
   return { withAgents: groups.filter(({ agents }) => agents.length > 0), terminalsOnly: groups.filter(({ agents }) => agents.length === 0) };
@@ -132,10 +159,10 @@ export function SidebarLayoutToggle() {
   </button>;
 }
 
-/** The top of the list: New session, Needs you with its count, and the list's head with its fold-all and terminal switches. */
+/** The top of the list: New session, Needs you with its count, and the list's head with its fold-all switch. */
 export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): void }) {
   const t = useT();
-  const { needsOnly, showTerminals, folded } = useTreeState();
+  const { needsOnly, folded } = useTreeState();
   const activity = useSidebarActivity();
   const online = machines.filter((machine) => machine.state === "connected");
   const count = online.reduce((sum, machine) => sum + sidebarAgents(machine.snapshot).filter(({ pane }) => needsYou(activity.status(machine.id, pane))).length, 0);
@@ -143,7 +170,6 @@ export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): voi
     .map(({ workspace }) => foldKey(machine.id, workspace.workspace_id)));
   const anyOpen = keys.some((key) => !folded.has(key));
   const foldLabel = anyOpen ? t("Fold every workspace") : t("Unfold every workspace");
-  const terminalsLabel = showTerminals ? t("Hide plain terminals") : t("Show plain terminals");
   return <div className="tree-top">
     <nav className="tree-nav">
       <button type="button" className="tree-nav-item" onClick={onNew}><SquarePen aria-hidden="true" /><span>{t("Start a session")}</span></button>
@@ -161,16 +187,14 @@ export function TreeNav({ machines, onNew }: { machines: Machine[]; onNew(): voi
             for (const key of keys) if (anyOpen) next.add(key); else next.delete(key);
             update({ folded: next });
           }}>{anyOpen ? <ChevronsDownUp aria-hidden="true" /> : <ChevronsUpDown aria-hidden="true" />}</button>
-        <button type="button" className="tree-tool" aria-pressed={showTerminals} aria-label={terminalsLabel} title={terminalsLabel}
-          onClick={() => update({ showTerminals: !showTerminals })}><Terminal aria-hidden="true" /></button>
       </div>}
     </div>
   </div>;
 }
 
 type Menu = { kind: "workspace"; workspace: WorkspaceInfo; anchor: HTMLElement; point?: { x: number; y: number } }
-  | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null; anchor: HTMLElement; point?: { x: number; y: number } };
-type MenuTarget = { kind: "workspace"; workspace: WorkspaceInfo } | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null };
+  | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null; head: boolean; anchor: HTMLElement; point?: { x: number; y: number } };
+type MenuTarget = { kind: "workspace"; workspace: WorkspaceInfo } | { kind: "pane"; pane: PaneInfo; title: string; agent: SidebarAgent | null; head: boolean };
 
 /** A folder as herdr-web wrote it in a dispatch note: the home directory as ~. */
 const shortCwd = (cwd: string | null | undefined): string => (cwd ?? "").replace(/^(?:\/data\d+)?\/home\/[^/]+(?=\/|$)/, "~");
@@ -180,7 +204,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const t = useT();
   const api = useMachineApi();
   const activity = useSidebarActivity();
-  const { needsOnly, showTerminals, terminalsOnlyOpen, folded } = useTreeState();
+  const { needsOnly, terminalsOnlyOpen, folded } = useTreeState();
   const { branches } = useWorktreeBranches(snapshot, online, true);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [closing, setClosing] = useState<{ pane: PaneInfo; title: string } | null>(null);
@@ -201,11 +225,13 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     setMenu({ ...target, anchor: event.currentTarget, ...(atPointer ? { point: { x: event.clientX, y: event.clientY } } : {}) });
   };
 
-  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, agent: SidebarAgent | null, trail: ReactNode = null) => {
+  // `under`: a pane of a split tab under the tab's first one; a tab's own row is its head
+  const row = (pane: PaneInfo, lead: ReactNode, title: string, extra: ReactNode, agent: SidebarAgent | null, trail: ReactNode = null, under = false) => {
     const terminal = agent === null;
     const selected = pane.pane_id === selectedPaneId;
-    return <div key={pane.pane_id} className={`tree-row${selected ? " is-active" : ""}${terminal ? " is-terminal" : ""}`}
-      onContextMenu={(event) => openMenu(event, { kind: "pane", pane, title, agent }, true)}>
+    const target: MenuTarget = { kind: "pane", pane, title, agent, head: !under };
+    return <div key={pane.pane_id} className={`tree-row${selected ? " is-active" : ""}${terminal ? " is-terminal" : ""}${under ? " is-under" : ""}`}
+      onContextMenu={(event) => openMenu(event, target, true)}>
       <button type="button" className="tree-row-main" disabled={!online} aria-current={selected ? "true" : undefined}
         title={[title, pane.cwd].filter(Boolean).join("\n")} onClick={() => actions.selectPane(pane.pane_id)}
         draggable={online}
@@ -218,11 +244,11 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         {trail}
       </button>
       <button type="button" className="tree-row-more" aria-label={t("Actions for {title}", { title })} aria-haspopup="menu"
-        onClick={(event) => openMenu(event, { kind: "pane", pane, title, agent }, false)}><Ellipsis aria-hidden="true" /></button>
+        onClick={(event) => openMenu(event, target, false)}><Ellipsis aria-hidden="true" /></button>
     </div>;
   };
 
-  const agentRow = (entry: SidebarAgent, place: string | null) => {
+  const agentRow = (entry: SidebarAgent, place: string | null, under = false) => {
     const { pane, agent } = entry;
     const title = pane.label?.trim() || agent?.title?.trim() || pane.title?.trim() || displayPaneTitle(pane);
     const name = agent?.name?.trim() || null;
@@ -235,10 +261,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       </>, entry,
       // subagents and background commands still running: an agent at rest may still be waiting on them
       <>{longRuns[pane.pane_id] && <span className="tree-long-run" title={t("Compacts at {size} tokens (long run)", { size: windowLabel(longRuns[pane.pane_id]!) })}>{windowLabel(longRuns[pane.pane_id]!)}</span>}
-        <BackgroundBadge count={online ? pane.background_tasks : 0} /></>);
+        <BackgroundBadge count={online ? pane.background_tasks : 0} /></>, under);
   };
 
-  const terminalRow = (pane: PaneInfo) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null);
+  const terminalRow = (pane: PaneInfo, under = false) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null, null, under);
 
   // herdr-web's copies: the pane's id and name, and how another agent hands this one a task over herdr's CLI
   const paneCopies = (open: Extract<Menu, { kind: "pane" }>): RowMenuItem[] => {
@@ -258,6 +284,18 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     ];
   };
 
+  // the strip is not drawn (the rows are the tabs): a tab's head row moves the tab, as the strip's menu did
+  const tabMoves = (open: Extract<Menu, { kind: "pane" }>): RowMenuItem[] => {
+    if (!open.head || !snapshot) return [];
+    const ids = snapshot.tabs.filter((tab) => tab.workspace_id === open.pane.workspace_id).map((tab) => tab.tab_id);
+    return ([[-1, t("Move the tab up"), ArrowUp], [1, t("Move the tab down"), ArrowDown]] as const).flatMap(([direction, label, icon]) => {
+      const boundary = adjacentTabBoundary(ids, open.pane.tab_id, direction);
+      return boundary === null ? [] : [{ id: direction < 0 ? "move-up" : "move-down", label, icon, divider: direction < 0 || ids.indexOf(open.pane.tab_id) === 0,
+        run: () => run(() => api.moveTab(open.pane.tab_id, boundary)) }];
+    });
+  };
+  const split = (pane: PaneInfo, direction: "right" | "down") => run(async () => { const made = await api.splitPane(pane.pane_id, direction, true); actions.selectPane(made.pane_id); });
+
   const menuItems = (open: Menu): RowMenuItem[] => open.kind === "workspace" ? [
     { id: "new-tab", label: t("New terminal tab in {name}", { name: open.workspace.label }), icon: Plus, run: () => run(() => actions.openTerminalTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id })) },
     { id: "new-agent-tab", label: t("Start an agent here…"), icon: SquarePen, run: () => actions.openNewTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id }) },
@@ -268,6 +306,9 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     } },
   ] : [
     ...paneCopies(open),
+    ...tabMoves(open),
+    { id: "split-right", label: t("Split it to the right"), divider: !open.head || tabMoves(open).length === 0, icon: Columns2, run: () => split(open.pane, "right") },
+    { id: "split-down", label: t("Split it below"), icon: Rows2, run: () => split(open.pane, "down") },
     { id: "rename", label: t("Rename the pane"), divider: true, icon: Pencil, run: () => {
       const label = window.prompt(t("Rename the pane"), open.title)?.trim();
       if (label && label !== open.title) run(() => api.renamePane(open.pane.pane_id, label));
@@ -299,6 +340,12 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       </div>;
     };
     const agentGroups = withAgents.map(({ workspace, agents, terminals }) => {
+      const agentOf = new Map(agents.map((entry) => [entry.pane.pane_id, entry]));
+      const terminalIds = new Set(terminals.map((pane) => pane.pane_id));
+      const rowOf = (under: boolean) => (pane: PaneInfo): ReactNode => {
+        const entry = agentOf.get(pane.pane_id);
+        return entry ? agentRow(entry, null, under) : terminalIds.has(pane.pane_id) ? terminalRow(pane, under) : null;
+      };
       const key = foldKey(machine.id, workspace.workspace_id);
       const holdsSelection = holds([...agents.map(({ pane }) => pane), ...terminals]);
       const open = !folded.has(key) || holdsSelection;
@@ -314,10 +361,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
           <span className="tree-head-name">{workspace.label}</span>
           {branchOf(workspace)}
         </button>)}
-        {open && <>
-          {agents.map((entry) => agentRow(entry, null))}
-          {showTerminals && terminals.map(terminalRow)}
-        </>}
+        {open && tabRows(snapshot, workspace.workspace_id, (pane) => agentOf.has(pane.pane_id) || terminalIds.has(pane.pane_id) ? pane : null)
+          .map(({ tab, head, under }) => <div key={tab.tab_id} className="tree-tab" role="group" aria-label={tabLabel(tab, t)}>
+            {rowOf(false)(head)}{under.map(rowOf(true))}
+          </div>)}
       </div>;
     });
     // a workspace of terminals alone is one line under the rest: its name opens the pane last viewed
