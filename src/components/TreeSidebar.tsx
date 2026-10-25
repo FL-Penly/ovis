@@ -294,7 +294,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         run: () => run(() => api.moveTab(open.pane.tab_id, boundary)) }];
     });
   };
-  const split = (pane: PaneInfo, direction: "right" | "down") => run(async () => { const made = await api.splitPane(pane.pane_id, direction, true); actions.selectPane(made.pane_id); });
+  // on this PC a split asks what it runs, as a + does; another PC's bundle splits to a shell
+  const split = (pane: PaneInfo, direction: "right" | "down") => machine.id === "local"
+    ? openQuickTab({ machineId: machine.id, workspaceId: pane.workspace_id, split: { paneId: pane.pane_id, direction } })
+    : run(async () => { const made = await api.splitPane(pane.pane_id, direction, true); actions.selectPane(made.pane_id); });
 
   const menuItems = (open: Menu): RowMenuItem[] => open.kind === "workspace" ? [
     { id: "new-tab", label: t("New terminal tab in {name}", { name: open.workspace.label }), icon: Plus, run: () => run(() => actions.openTerminalTab({ machineId: machine.id, workspaceId: open.workspace.workspace_id })) },

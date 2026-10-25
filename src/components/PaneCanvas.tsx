@@ -19,6 +19,8 @@ import { displayPaneTitle } from "./Sidebar.tsx";
 import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { ConfirmDialog } from "./ConfirmDialog.tsx";
 import "./PaneCanvas.css";
+import { openQuickTab } from "./QuickTabPicker.tsx"; // downstream
+import { drivenByTests } from "../lib/upstreamTests.ts"; // downstream
 
 type PaneLayoutSplit = PaneLayoutSnapshot["splits"][number];
 
@@ -147,6 +149,11 @@ export function PaneCanvas({ snapshot, pane, selectedPaneId, onSelect, onChanged
     const made = await api.splitPane(target.pane_id, direction, true);
     if (alive.current && latest.current.tabId === tabId && latest.current.selection === selection) onSelect(made.pane_id);
   };
+  // downstream: on this PC a split asks what it runs, as the strip's + does (components/QuickTabPicker.tsx)
+  const splitAsking = (target: HerdrPane, direction: "right" | "down"): void => {
+    if (machineId === "local" && !drivenByTests) openQuickTab({ machineId, workspaceId: target.workspace_id, split: { paneId: target.pane_id, direction } });
+    else run(() => split(target, direction));
+  };
   const requestClose = (target: HerdrPane): void => {
     const inWorkspace = snapshot?.panes.filter((item) => item.workspace_id === target.workspace_id).length ?? 1;
     if (inWorkspace === 1 || target.agent_status === "working" || target.agent_status === "blocked") setClosing(target);
@@ -158,8 +165,8 @@ export function PaneCanvas({ snapshot, pane, selectedPaneId, onSelect, onChanged
     ...(target.label ? [{ id: "clear-name", label: t("Clear pane name"), icon: Eraser, run: () => run(() => api.renamePane(target.pane_id, "")) }] : []),
     ...(pane && target.pane_id !== pane.pane_id ? [{ id: "swap-focused", label: t("Swap with focused pane"), icon: ArrowLeftRight,
       run: () => run(() => api.swapPaneWith(pane.pane_id, target.pane_id)) }] : []),
-    { id: "split-right", label: t("Split right"), icon: Columns2, run: () => run(() => split(target, "right")) },
-    { id: "split-down", label: t("Split down"), icon: Rows2, run: () => run(() => split(target, "down")) },
+    { id: "split-right", label: t("Split right"), icon: Columns2, run: () => splitAsking(target, "right") },
+    { id: "split-down", label: t("Split down"), icon: Rows2, run: () => splitAsking(target, "down") },
     { id: "zoom", label: t(layout && zoomMode(layout, target.pane_id) === "off" ? "Unzoom pane" : "Zoom pane"), icon: Maximize2,
       run: () => run(async () => {
         const tabId = latest.current.tabId;

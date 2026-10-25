@@ -34,6 +34,8 @@ export interface AppActions {
    * A shell tab in the same workspace, at once and with no dialog, as herdr's own new tab: the
    * new pane opens unless another one was opened meanwhile. Rejects with herdr's refusal.
    */
+  /** downstream: split `paneId` and run the new tab list's pick in the new pane (lib/splitLaunch.ts) */
+  openSplit?: (target: { machineId: string; paneId: string; direction: "right" | "down" }, agent?: { kind: string; args?: string[] } | null, env?: Record<string, string>) => Promise<void>;
   openTerminalTab: (target?: { machineId: string; workspaceId: string }, agent?: { kind: string; args?: string[] } | null, env?: Record<string, string>) => Promise<void>; // downstream: `agent` runs in it, with `env` (components/QuickTabPicker.tsx)
   /**
    * The earlier sessions of a workspace's folder (components/SessionHistory.tsx): the named
