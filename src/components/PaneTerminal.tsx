@@ -34,6 +34,7 @@ import { PhoneKeys } from "./PhoneKeys.tsx"; // downstream
 import { useDoubleTapKeyboard } from "../lib/useDoubleTapKeyboard.ts"; // downstream
 import { LineExtras } from "./LineExtras.tsx"; // downstream
 import { rememberLine } from "../lib/phoneKeys.ts"; // downstream
+import { drivenByTests } from "../lib/upstreamTests.ts"; // downstream
 import { TerminalInput, type TerminalInputHandle } from "./TerminalInput.tsx";
 import { FindBar } from "./FindBar.tsx";
 import { TerminalViewportTools, type TerminalSearchState } from "./TerminalViewportTools.tsx";
@@ -621,7 +622,9 @@ export function PaneTerminal({
     return sent;
   }, [sendTerminalLine]);
 
-  useDoubleTapKeyboard(terminal, hostRef, coarse && !chatView); // downstream
+  // downstream: a touch screen's keys, double tap and line extras are mobile-terminal's, except under upstream's tests
+  const phoneKeys = coarse && !drivenByTests;
+  useDoubleTapKeyboard(terminal, hostRef, phoneKeys && !chatView);
   const { pressKey, toggleModifier, abortTurn } = useTypedKeys({ agent, agentStatus, barKeyRef, coarseRef, commitPendingText, compositionCommitPendingRef, composingRef, inputLineRef, modifiersRef, paneId, reassertIfStaleRef, setInputError, setModifiers, socketRef, stopKeyRef, tRef, termRef });
 
   // what a paste into the line is for: this PC's pane on this connection, while it can type there.
@@ -1234,15 +1237,15 @@ export function PaneTerminal({
           slot in the chat lens too (a box-less slot there, TerminalInput.css), so switching lenses
           keeps it mounted: a remount would drop what was typed and a send still on its way */}
       {/* downstream: the line's recent lines and phrases (LineExtras.tsx), one row over the line's slot */}
-      {!secretInput && !chatView && lineSlot && !secretActive && coarse && <LineExtras key={paneId} owner={paneStorageId(machineId, paneId)} />}
+      {!secretInput && !chatView && lineSlot && !secretActive && phoneKeys && <LineExtras key={paneId} owner={paneStorageId(machineId, paneId)} />}
       {((!chatView && lineSlot) || secretInput) && <div ref={setInputSlot} className={`terminal-input-slot${!chatView && lineSlot ? "" : " is-empty"}`}>
         {secretInput ?? (!chatView && lineSlot && !secretActive && <TerminalInput key={paneId} ref={lineRef} active={active} owner={paneStorageId(machineId, paneId)} onComposing={setLineComposing} connected={connected && !held} onSend={sendRememberedLine} onEnter={pressEnter} onInsert={insertTerminalText} pasteTarget={pasteTarget} onPasting={setLinePasting} onFocus={reassertGrid} />)}
       </div>}
       {/* downstream: a touch screen takes mobile-terminal's rows and combo panel (PhoneKeys.tsx) */}
-      {presented && paneId !== null && !secretActive && !observing && !chatView && coarse && <PhoneKeys disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
+      {presented && paneId !== null && !secretActive && !observing && !chatView && phoneKeys && <PhoneKeys disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
         holdScope={`${paneStorageId(machineId, paneId)}:${view}`} directTyping={directTyping} onToggleDirect={toggleDirect} directDisabled={lineComposing}
         onPaste={pasteIntoLine} pasteDisabled={linePasting} note={pasteGuidance ? t("Tap Input line to paste.") : null} onNoteDismiss={dismissPasteGuidance} />}
-      {presented && paneId !== null && !secretActive && !observing && !chatView && !coarse && <KeyBar disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
+      {presented && paneId !== null && !secretActive && !observing && !chatView && !phoneKeys && <KeyBar disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
         holdScope={`${paneStorageId(machineId, paneId)}:${view}`}
         modifiers={modifiers} onToggleModifier={toggleModifier} items={settings.keyBarItems}
         {...(coarse ? { directTyping, onToggleDirect: toggleDirect, directDisabled: lineComposing, onPaste: pasteIntoLine, pasteDisabled: linePasting,
