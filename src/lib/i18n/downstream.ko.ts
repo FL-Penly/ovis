@@ -60,7 +60,7 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "New tab in {name}": "{name}에 새 탭",
   "Looking for agents…": "에이전트를 찾는 중…",
   "Starting {agent}…": "{agent} 시작 중…",
-  "Enter opens · 1–9 picks · Esc closes": "Enter 열기 · 1–9 선택 · Esc 닫기",
+  "↑↓ to choose · Enter opens · Esc closes": "↑↓ 선택 · Enter 열기 · Esc 닫기",
   "New terminal tab in {name}": "{name}에 새 터미널 탭",
   "Start an agent here…": "여기서 에이전트 시작…",
   "Source Control": "소스 제어",

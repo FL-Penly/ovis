@@ -40,7 +40,12 @@
 }
 
 .quick-tab-option.is-active {
-  background: var(--side-hover);
+  background: var(--side-selected);
+}
+
+/* inside the row: the list scrolls, and would clip a ring drawn outside it */
+.quick-tab-option:focus-visible {
+  outline-offset: -2px;
 }
 
 .quick-tab-option:disabled {
@@ -65,12 +70,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.quick-tab-key {
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--fs-xs);
 }
 
 .quick-tab-note,

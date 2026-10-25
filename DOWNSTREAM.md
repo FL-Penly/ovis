@@ -43,7 +43,7 @@ Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field w
 field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
 
 **New tab list.** ⌘T and a workspace's + list a terminal first, then the PC's installed agents; Enter opens the
-highlighted one (the terminal), 1–9 pick a row, Esc closes. An agent starts with its own defaults (no model, level
+highlighted one (the terminal first), ↑↓ move, Esc closes. An agent starts with its own defaults (no model, level
 or first message) and Settings' launch mode; the workspace's menu keeps upstream's full dialog.
 
 **Source Control.** A Git button beside Browse files (this PC's panes) opens a panel after VS Code's for the

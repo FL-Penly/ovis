@@ -60,7 +60,7 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "New tab in {name}": "{name} に新しいタブ",
   "Looking for agents…": "エージェントを探しています…",
   "Starting {agent}…": "{agent} を起動しています…",
-  "Enter opens · 1–9 picks · Esc closes": "Enter で開く · 1–9 で選択 · Esc で閉じる",
+  "↑↓ to choose · Enter opens · Esc closes": "↑↓ で選択 · Enter で開く · Esc で閉じる",
   "New terminal tab in {name}": "{name} に新しいターミナルタブ",
   "Start an agent here…": "ここでエージェントを起動…",
   "Source Control": "ソース管理",
