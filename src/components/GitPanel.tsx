@@ -113,7 +113,7 @@ export function GitPanel({ paneId, directory, onOpenDiff, onClose }: { paneId: s
     setOpened({ hash: row.commit.hash, files: null, base });
     if (base === null) return;
     try {
-      const list = await api.fetchRepoDiffFiles({ paneId, directory, scope: "commit", base, head: row.commit.hash });
+      const list = await api.fetchRepoDiffFiles({ paneId, directory, scope: "commit", base, head: row.commit.hash, comparison: null });
       setOpened((current) => current?.hash === row.commit.hash ? { ...current, files: list.files } : current);
     } catch (e) {
       setNote({ text: e instanceof Error ? e.message : String(e), failed: true });

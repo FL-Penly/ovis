@@ -22,8 +22,10 @@ adapted from another project, with its license.
 ## Set up
 
 - Linux (x64, arm64), macOS or Windows x64. Windows uses the screen mirror and needs no terminal addon; Alpine and 32-bit ARM have no addon build.
-- Bun 1.4 or newer, Node 18 or newer on Linux/macOS (it runs the terminal-attach sidecar), herdr 0.9.0 or newer for
-  the integration tests. CI runs Bun 1.4.2, Node 22 and herdr 0.9.3, all pinned in
+- Bun 1.4 or newer, and herdr 0.9.0 or newer for the integration tests. Terminals in a checkout run on
+  the Rust PTY host (`cargo build --release --manifest-path crates/pty-sidecar/Cargo.toml`, or
+  `bun scripts/pty-sidecar.ts install` on a release tag); Node 18 or newer is the fallback, and the PTY
+  tests run on both. CI runs Bun 1.4.2, Node 22 and herdr 0.9.3, all pinned in
   [.github/actions/setup-ci/action.yml](.github/actions/setup-ci/action.yml).
 
 ```bash
@@ -46,7 +48,8 @@ Neither command updates itself; only `bun run start` and the plugin run the upda
   a PR: keep each as its own commit, in the order they depend on each other, and say in the
   description what needs what. PRs are squash merged, so the PR title becomes the commit:
   `type(scope): summary`, for example `fix(chat): keep the finished turn finished after Send`.
-  The merge adds `(#N)`.
+  The merge adds `(#N)`. The PR title check (`.github/workflows/pr-title.yml`) checks the title
+  again whenever it is edited.
 - Fill in the [PR template](.github/pull_request_template.md): what changed and how you checked it.
 - CI on a fork's PR waits until a maintainer approves the run. That approval is not a review.
 

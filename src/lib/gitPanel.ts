@@ -3,6 +3,7 @@
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): the Source Control panel's requests
  * (server/git-panel-routes.ts) and its commit graph's layout.
  */
+import { useState } from "react";
 import type { GitBranch, GitCommit, GitDone, GitLog, GitStatus } from "../../shared/git-panel.ts";
 
 export class GitRequestError extends Error {
@@ -83,3 +84,6 @@ export function splitPath(path: string): { name: string; folder: string } {
   const at = path.lastIndexOf("/");
   return at < 0 ? { name: path, folder: "" } : { name: path.slice(at + 1), folder: path.slice(0, at) };
 }
+
+/** Whether the Source Control panel is open: App keeps the state here, under its hook ceiling (src/app-hooks.test.ts). */
+export const useGitPanelOpen = () => useState(false);
