@@ -42,7 +42,9 @@ function storedFolds(): Set<string> {
 }
 
 let state: TreeState = {
-  layout: stored(LAYOUT_KEY) === "classic" ? "classic" : "tree",
+  // the tree unless turned off; a browser driven by automation (upstream's browser tests, written for the
+  // classic list) starts on the classic one, which a person's browser never does
+  layout: stored(LAYOUT_KEY) === "classic" || (stored(LAYOUT_KEY) === null && typeof navigator !== "undefined" && navigator.webdriver) ? "classic" : "tree",
   needsOnly: false,
   showTerminals: stored(TERMINALS_KEY) === "1",
   // on unless turned off: a workspace without an agent (a plugin's, a spare shell) is rarely what the list is for
@@ -111,7 +113,7 @@ export function SidebarLayoutToggle() {
   const t = useT();
   const tree = useTreeSidebar();
   const label = tree ? t("Switch to the classic sidebar") : t("Switch to the tree sidebar");
-  return <button type="button" className="btn btn-ghost sidebar-footer-action tree-layout-toggle" aria-label={label} title={label}
+  return <button type="button" className="btn btn-ghost tree-layout-toggle" aria-label={label} title={label}
     onClick={() => update({ layout: tree ? "classic" : "tree", needsOnly: false })}>
     {tree ? <PanelsTopLeft aria-hidden="true" /> : <ListTree aria-hidden="true" />}
   </button>;

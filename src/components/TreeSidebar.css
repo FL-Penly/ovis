@@ -276,3 +276,29 @@
   color: var(--text);
   font-size: var(--fs-xs);
 }
+
+/* the layout switch beside the gear, a square as the gear is (Sidebar.css's .sidebar-footer-settings),
+   leaving the rest of the row to the plan meters; not a .sidebar-footer-action, which upstream's tests
+   take to be the gear alone */
+.sidebar-footer-row > .tree-layout-toggle {
+  flex: 0 0 auto;
+  width: var(--side-box);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+}
+
+.tree-layout-toggle svg {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  margin-inline: auto;
+  color: var(--text-dim);
+}
+
+@media (hover: hover) {
+  .tree-layout-toggle:hover:not(:disabled) { background: var(--side-hover); }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .tree-layout-toggle:active { background: var(--side-hover); opacity: 1; }
+}

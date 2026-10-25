@@ -4,7 +4,8 @@
  * tab of the open workspace, ⌘T opens a terminal tab in it and ⌘W closes the open tab (Ctrl+Alt in
  * place of ⌘ off a Mac, where Ctrl+arrows move by word). Both steps wrap around. In a text field with
  * text the arrows stay the field's (⌘← is the start of the line there); an empty field and the
- * terminal give them up. A browser tab keeps ⌘T and ⌘W for itself: they reach the page in the
+ * terminal give them up, though a terminal with no other tab to step to keeps ⌘← / ⌘→ for the start
+ * and end of its line. A browser tab keeps ⌘T and ⌘W for itself: they reach the page in the
  * installed app.
  */
 import { useEffect, useRef, type MutableRefObject, type RefObject } from "react";
@@ -85,6 +86,9 @@ export function navTarget(snapshot: SessionSnapshot, machineId: string, selected
   return frontPane(panes.filter((pane) => pane.tab_id === tab.tab_id), lastViewedPane("tab", machineId, tab.tab_id), focusedIn(tab.tab_id))?.pane_id ?? null;
 }
 
+/** Whether a key went to a terminal (xterm's input). */
+const inTerminal = (event: KeyboardEvent): boolean => event.target instanceof Element && event.target.closest(".xterm") !== null;
+
 export function useNavShortcuts(actions: AppActions, snapshot: RefObject<SessionSnapshot | null>, machineId: string, selectedPaneId: string | null,
   sidebarWorkspaces: (snapshot: SessionSnapshot, selectedPaneId: string | null) => string[], enabled: boolean): void {
   // a step back to a workspace lands where it was left: upstream's classic sidebar remembers this, the tree does not
@@ -98,20 +102,23 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
     const onKeyDown = (event: KeyboardEvent): void => {
       const move = navMove(event, mac);
       if (move === null || keepsKeyForText(event)) return;
+      const roster = snapshot.current;
+      const step = move === "terminal-tab" || move === "close-tab" || !roster ? null
+        : navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move);
+      // with no tab to step to, the terminal keeps ⌘← / ⌘→ for the start and end of its line
+      if (step === null && (move === "tab-previous" || move === "tab-next") && inTerminal(event)) return;
       // the app's alone: neither the browser (⌘← is Back) nor the terminal gets it
       event.preventDefault();
       event.stopPropagation();
       if (event.repeat && (move === "terminal-tab" || move === "close-tab")) return;
       if (move === "terminal-tab") { void actions.openTerminalTab().catch(() => { /* herdr refused: nothing opens */ }); return; }
-      const roster = snapshot.current;
       if (!roster) return;
       if (move === "close-tab") {
         const tabId = roster.panes.find((pane) => pane.pane_id === selectedPaneId)?.tab_id;
         if (tabId) window.dispatchEvent(new CustomEvent<CloseTabDetail>(CLOSE_TAB_EVENT, { detail: { machineId, tabId }, cancelable: true }));
         return;
       }
-      const target = navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move);
-      if (target !== null) actions.selectPane(target);
+      if (step !== null) actions.selectPane(step);
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
