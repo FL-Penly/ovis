@@ -1,6 +1,7 @@
 /**
  * Downstream (FL-Penly/ovis, DOWNSTREAM.md): herdr-style moves between workspaces and tabs.
- * ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows, ⌘← / ⌘→ to the previous / next
+ * ⌘↑ / ⌘↓ step to the previous / next workspace the sidebar shows (the tree sidebar: its previous / next
+ * row, across tabs and workspaces, components/TreeSidebar.tsx sidebarRowPanes), ⌘← / ⌘→ to the previous / next
  * tab of the open workspace, ⌘T asks what a new tab in it runs (components/QuickTabPicker.tsx) and ⌘W closes the open tab (Ctrl+Alt in
  * place of ⌘ off a Mac, where Ctrl+arrows move by word). Both steps wrap around. In a text field with
  * text the arrows stay the field's (⌘← is the start of the line there); an empty field and the
@@ -63,13 +64,18 @@ export function frontPane(panes: readonly PaneInfo[], viewed: string | undefined
  * The pane a move lands on, or null when there is nowhere to go. `workspaces` is the order the
  * sidebar shows; the open pane's own workspace counts even when the sidebar would leave it out.
  */
-export function navTarget(snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null, workspaces: readonly string[], move: Exclude<NavMove, "terminal-tab" | "close-tab">): string | null {
+export function navTarget(snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null, workspaces: readonly string[], move: Exclude<NavMove, "terminal-tab" | "close-tab">, rows: readonly string[] | null = null): string | null {
   const panes = rosterPanes(snapshot.panes, selectedPaneId);
   const selected = panes.find((pane) => pane.pane_id === selectedPaneId);
   const focusedIn = (tabId: string | undefined) => snapshot.layouts?.find((layout) => layout.tab_id === tabId)?.focused_pane_id;
   const step = <T,>(list: readonly T[], at: number, direction: number): T | undefined =>
     list.length === 0 ? undefined : list[((at < 0 ? (direction > 0 ? -1 : 0) : at) + direction + list.length) % list.length];
   const direction = move.endsWith("previous") ? -1 : 1;
+  // the tree sidebar steps down its rows, whatever tab or workspace each is in
+  if (move.startsWith("workspace") && rows !== null) {
+    const id = step(rows, selectedPaneId === null ? -1 : rows.indexOf(selectedPaneId), direction);
+    return id === undefined || id === selectedPaneId ? null : id;
+  }
   if (move.startsWith("workspace")) {
     const order = selected && !workspaces.includes(selected.workspace_id)
       ? snapshot.workspaces.map((workspace) => workspace.workspace_id).filter((id) => id === selected.workspace_id || workspaces.includes(id))
@@ -91,7 +97,8 @@ export function navTarget(snapshot: SessionSnapshot, machineId: string, selected
 const inTerminal = (event: KeyboardEvent): boolean => event.target instanceof Element && event.target.closest(".xterm") !== null;
 
 export function useNavShortcuts(actions: AppActions, snapshot: RefObject<SessionSnapshot | null>, machineId: string, selectedPaneId: string | null,
-  sidebarWorkspaces: (snapshot: SessionSnapshot, selectedPaneId: string | null) => string[], enabled: boolean): void {
+  sidebarWorkspaces: (snapshot: SessionSnapshot, selectedPaneId: string | null) => string[], enabled: boolean,
+  sidebarRows: (snapshot: SessionSnapshot, machineId: string, selectedPaneId: string | null) => string[] | null = () => null): void {
   // a step back to a workspace lands where it was left: upstream's classic sidebar remembers this, the tree does not
   useEffect(() => {
     const pane = snapshot.current?.panes.find((candidate) => candidate.pane_id === selectedPaneId);
@@ -105,7 +112,7 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
       if (move === null || keepsKeyForText(event)) return;
       const roster = snapshot.current;
       const step = move === "terminal-tab" || move === "close-tab" || !roster ? null
-        : navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move);
+        : navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move, sidebarRows(roster, machineId, selectedPaneId));
       // with no tab to step to, the terminal keeps ⌘← / ⌘→ for the start and end of its line
       if (step === null && (move === "tab-previous" || move === "tab-next") && inTerminal(event)) return;
       // the app's alone: neither the browser (⌘← is Back) nor the terminal gets it
@@ -123,5 +130,5 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [actions, snapshot, machineId, selectedPaneId, sidebarWorkspaces, enabled]);
+  }, [actions, snapshot, machineId, selectedPaneId, sidebarWorkspaces, enabled, sidebarRows]);
 }

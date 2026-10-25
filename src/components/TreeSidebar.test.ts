@@ -1,7 +1,7 @@
 // Downstream (FL-Penly/ovis, DOWNSTREAM.md): the tree sidebar's grouping (TreeSidebar.tsx).
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
-import { hottest, needsYou, sidebarWorkspaceIds, splitGroups, tabRows, treeGroups } from "./TreeSidebar.tsx";
+import { hottest, needsYou, sidebarRowPanes, sidebarWorkspaceIds, splitGroups, tabRows, treeGroups } from "./TreeSidebar.tsx";
 
 const workspace = (id: string): WorkspaceInfo => ({ workspace_id: id, active_tab_id: `${id}:t1`, label: id.toUpperCase(), number: 1, tab_count: 1, pane_count: 1, focused: false, agent_status: "idle" });
 const pane = (id: string, workspaceId: string, agent?: string): HerdrPane => ({ pane_id: id, workspace_id: workspaceId, tab_id: `${workspaceId}:t1`, terminal_id: `${id}:term`, revision: 1, focused: false, agent_status: "idle", ...(agent ? { agent } : {}) });
@@ -55,6 +55,14 @@ describe("tabRows", () => {
       ["t2", "shell", []],
       ["t3", "solo", []],
     ]);
+  });
+
+  it("gives ⌘↑ / ⌘↓ every row of an open workspace in drawn order, and one stop for a terminal-only one", () => {
+    const withShell = { ...roster, workspaces: [...roster.workspaces, { ...roster.workspaces[0]!, workspace_id: "dev2", label: "DEV2", active_tab_id: "t9" }],
+      tabs: [...roster.tabs, { tab_id: "t9", workspace_id: "dev2", label: "1", number: 1, pane_count: 1, focused: false, agent_status: "idle" }],
+      panes: [...roster.panes, { ...pane("sh", "dev2"), tab_id: "t9" }] } as SessionSnapshot;
+    expect(sidebarRowPanes(withShell, "local", "first")).toEqual(["first", "fork", "below", "shell", "solo"]);
+    expect(sidebarRowPanes(withShell, "local", "sh")).toEqual(["first", "fork", "below", "shell", "solo", "sh"]);
   });
 
   it("lets the next pane lead a tab whose first one is left out, and drops a tab with none left", () => {

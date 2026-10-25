@@ -86,7 +86,7 @@ import { useSplitLayout, useSplitRecheck, useSplitState } from "./lib/useSplitVi
 import { useLinkLanding, useMachineGone, useNotificationTargets, useSelectedLayout, useSelectedMachine, useSelectedPane, useSelectionMark, useSelectionState, useSelectPane, useSelectTarget } from "./lib/useSelection.ts";
 import { useAddressBar } from "./lib/useAddressBar.ts";
 import { useNavShortcuts } from "./lib/navShortcuts.ts"; // downstream: DOWNSTREAM.md
-import { sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
+import { sidebarRowPanes, sidebarWorkspaceIds } from "./components/TreeSidebar.tsx"; // downstream
 import { GitPanel, GitPanelButton, gitPanelMenuItem } from "./components/GitPanel.tsx"; // downstream
 import { useGitPanelOpen } from "./lib/gitPanel.ts"; // downstream
 import { QuickTabPicker, openQuickTab } from "./components/QuickTabPicker.tsx"; // downstream
@@ -460,7 +460,7 @@ export function App() {
   );
 
   useShortcuts(actions, locked === false);
-  useNavShortcuts(actions, snapshotRef, selectedMachineId, selectedPaneId, sidebarWorkspaceIds, locked === false); // downstream
+  useNavShortcuts(actions, snapshotRef, selectedMachineId, selectedPaneId, sidebarWorkspaceIds, locked === false, sidebarRowPanes); // downstream
   const [gitOpen, setGitOpen] = useGitPanelOpen(); // downstream
 
   // The header's More menu: what used to be three buttons of its own. Each item is there under

@@ -46,6 +46,15 @@ const snapshot: SessionSnapshot = {
 };
 
 describe("navTarget", () => {
+  it("steps down the tree sidebar's rows, across tabs and workspaces, when it gives them", () => {
+    const rows = ["w1a", "w1b", "w2b"];
+    expect(navTarget(snapshot, "local", "w1a", ["w1", "w2"], "workspace-next", rows)).toBe("w1b");
+    expect(navTarget(snapshot, "local", "w1b", ["w1", "w2"], "workspace-next", rows)).toBe("w2b");
+    expect(navTarget(snapshot, "local", "w2b", ["w1", "w2"], "workspace-next", rows)).toBe("w1a");
+    expect(navTarget(snapshot, "local", "w1a", ["w1", "w2"], "workspace-previous", rows)).toBe("w2b");
+    expect(navTarget(snapshot, "local", "w1a", ["w1", "w2"], "workspace-next", ["w1a"])).toBeNull();
+  });
+
   const all = ["w1", "w2", "w3"];
 
   it("steps through the sidebar's workspaces, landing on the pane in front, and wraps around", () => {
