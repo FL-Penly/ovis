@@ -10,7 +10,7 @@
  * seen yet. MachineSidebar draws it in place of each PC's workspace list and the Agents list while
  * the layout is "tree"; the footer's layout button switches back to upstream's.
  */
-import { useMemo, useState, useSyncExternalStore, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type DragEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, BellRing, ChevronRight, ChevronsDownUp, ChevronsUpDown, Columns2, Copy, Ellipsis, History, Rows2, Send, Users, ListTree, PanelsTopLeft, Pencil, Plus, SquarePen, Terminal, X } from "lucide-react";
 import type { Machine } from "../../shared/machines.ts";
 import type { AgentStatus, HerdrTab, PaneInfo, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
@@ -77,6 +77,19 @@ const useTreeState = (): TreeState => useSyncExternalStore(subscribe, current, c
 const foldKey = (machineId: string, workspaceId: string): string => `${machineId}\u0000${workspaceId}`;
 
 export const useTreeSidebar = (): boolean => useTreeState().layout === "tree";
+
+/**
+ * The folds once `paneId` is opened: its workspace unfolds, so a pane picked in a folded one (a row,
+ * ⌘↑ / ⌘↓, Needs you) shows where it is. Null when nothing changes. Only the pick unfolds: the open
+ * pane's workspace folds again like any other.
+ */
+export function foldsOnOpen(folded: ReadonlySet<string>, machineId: string, snapshot: SessionSnapshot | null, paneId: string | null): Set<string> | null {
+  const workspaceId = paneId === null ? undefined : snapshot?.panes.find((pane) => pane.pane_id === paneId)?.workspace_id;
+  if (workspaceId === undefined || !folded.has(foldKey(machineId, workspaceId))) return null;
+  const next = new Set(folded);
+  next.delete(foldKey(machineId, workspaceId));
+  return next;
+}
 
 /** Whether a state asks for the user: an open question, or an answer not seen yet. */
 export const needsYou = (status: AgentStatus | undefined): boolean => {
@@ -159,8 +172,9 @@ export function sidebarRowPanes(snapshot: SessionSnapshot, machineId: string, se
     tabRows(snapshot, workspace.workspace_id, (pane) => shown.has(pane.pane_id) ? pane.pane_id : null).flatMap(({ head, under }) => [head, ...under]);
   const stops = withAgents.flatMap(({ workspace, agents, terminals }) => {
     const shown = new Set([...agents.map(({ pane }) => pane.pane_id), ...terminals.map((pane) => pane.pane_id)]);
-    const open = !state.folded.has(foldKey(machineId, workspace.workspace_id)) || holds(shown);
-    return open ? rows(workspace, shown) : opensOn(workspace, [...agents.map(({ pane }) => pane), ...terminals]);
+    if (!state.folded.has(foldKey(machineId, workspace.workspace_id))) return rows(workspace, shown);
+    // folded: one stop, the open pane itself when it is in there
+    return holds(shown) ? [selectedPaneId!] : opensOn(workspace, [...agents.map(({ pane }) => pane), ...terminals]);
   });
   for (const { workspace, terminals } of terminalsOnly) {
     const shown = new Set(terminals.map((pane) => pane.pane_id));
@@ -245,6 +259,14 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   const [drop, setDrop] = useState<{ id: string; after: boolean } | null>(null);
   const endDrag = (): void => { setDrag(null); setDrop(null); };
   const groups = useMemo(() => treeGroups(snapshot), [snapshot]);
+  // a newly opened pane unfolds its workspace once, when the roster knows it; then it folds as the user likes
+  const unfoldedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (selectedPaneId === unfoldedFor.current || !snapshot?.panes.some((pane) => pane.pane_id === selectedPaneId)) return;
+    unfoldedFor.current = selectedPaneId;
+    const next = foldsOnOpen(state.folded, machine.id, snapshot, selectedPaneId);
+    if (next) update({ folded: next });
+  }, [selectedPaneId, snapshot, machine.id]);
   const longRuns = useLongRunPanes(machine.id, useMemo(() => snapshot?.panes.filter((pane) => pane.agent === "claude").map((pane) => pane.pane_id) ?? [], [snapshot]));
   const status = (pane: PaneInfo): AgentStatus | undefined => online ? activity.status(machine.id, pane) : undefined;
   const copy = (text: string, said: string) => void copyText(text).then((ok) => {
@@ -420,11 +442,12 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       };
       const key = foldKey(machine.id, workspace.workspace_id);
       const holdsSelection = holds([...agents.map(({ pane }) => pane), ...terminals]);
-      const open = !folded.has(key) || holdsSelection;
+      const open = !folded.has(key);
       const hot = open || !online ? null : hottest(agents.map(({ pane }) => status(pane)));
       return <div key={workspace.workspace_id} className={`tree-group${dropMark(workspace.workspace_id)}`} role="group" aria-label={workspace.label}
         {...dropZone("workspace", workspace.workspace_id, workspace.workspace_id)}>
-        {head(workspace, <button type="button" className="tree-toggle" aria-expanded={open} draggable={online}
+        {/* folded over the open pane: its head is lit, as a Terminals only line holding it is */}
+        {head(workspace, <button type="button" className="tree-toggle" aria-expanded={open} aria-current={!open && holdsSelection ? "true" : undefined} draggable={online}
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
             event.dataTransfer.setData("application/x-ovis-workspace", workspace.workspace_id);

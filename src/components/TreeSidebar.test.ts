@@ -1,7 +1,7 @@
 // Downstream (FL-Penly/ovis, DOWNSTREAM.md): the tree sidebar's grouping (TreeSidebar.tsx).
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane, SessionSnapshot, WorkspaceInfo } from "../../shared/protocol.ts";
-import { hottest, needsYou, sidebarRowPanes, sidebarWorkspaceIds, splitGroups, tabRows, treeGroups } from "./TreeSidebar.tsx";
+import { foldsOnOpen, hottest, needsYou, sidebarRowPanes, sidebarWorkspaceIds, splitGroups, tabRows, treeGroups } from "./TreeSidebar.tsx";
 
 const workspace = (id: string): WorkspaceInfo => ({ workspace_id: id, active_tab_id: `${id}:t1`, label: id.toUpperCase(), number: 1, tab_count: 1, pane_count: 1, focused: false, agent_status: "idle" });
 const pane = (id: string, workspaceId: string, agent?: string): HerdrPane => ({ pane_id: id, workspace_id: workspaceId, tab_id: `${workspaceId}:t1`, terminal_id: `${id}:term`, revision: 1, focused: false, agent_status: "idle", ...(agent ? { agent } : {}) });
@@ -101,5 +101,22 @@ describe("hottest", () => {
     expect(hottest(["idle", "done", "blocked"])).toBe("blocked");
     expect(hottest(["idle", "done"])).toBe("done");
     expect(hottest(["idle", undefined])).toBeNull();
+  });
+});
+
+describe("foldsOnOpen", () => {
+  const roster = snapshot(["dev1", "dev2"], [pane("p1", "dev1", "claude"), pane("p2", "dev2", "codex")]);
+  const key = (workspaceId: string) => `local\u0000${workspaceId}`;
+
+  it("unfolds the workspace of a pane opened in it, and only that one", () => {
+    const next = foldsOnOpen(new Set([key("dev1"), key("dev2")]), "local", roster, "p2");
+    expect(next && [...next]).toEqual([key("dev1")]);
+  });
+
+  it("changes nothing for an open workspace, an unknown pane, or no pane", () => {
+    expect(foldsOnOpen(new Set([key("dev1")]), "local", roster, "p2")).toBeNull();
+    expect(foldsOnOpen(new Set([key("dev1")]), "local", roster, "gone")).toBeNull();
+    expect(foldsOnOpen(new Set([key("dev1")]), "local", roster, null)).toBeNull();
+    expect(foldsOnOpen(new Set([key("dev1")]), "local", null, "p1")).toBeNull();
   });
 });

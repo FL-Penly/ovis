@@ -307,7 +307,8 @@
 
 .tree-rest-workspace.is-open > .tree-head { background: var(--side-selected); }
 
-.tree-rest-workspace .tree-toggle[aria-current="true"] { color: var(--text); }
+.tree-rest-workspace .tree-toggle[aria-current="true"],
+.tree-group .tree-toggle[aria-current="true"] { color: var(--text); }
 
 .tree-rest-workspace .tree-toggle:disabled { cursor: default; }
 
