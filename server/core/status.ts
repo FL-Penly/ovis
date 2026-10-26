@@ -81,7 +81,7 @@ export function createStatusHub<Owner, Lease>({ options, devices, preferences, c
 
   /** `done` for agents herdr loses track of (server/completion.ts), kept across restarts */
   const completions = new CompletionTracker(join(options.stateDir ?? defaultStateDir(), "completions.json"));
-  const finishes = new Finishes();
+  const finishes = new Finishes(undefined, join(options.stateDir ?? defaultStateDir(), "finishes.json")); // downstream: read finishes outlive a restart
   /** OmO panes get their status from OmO's session files: herdr reports none for them (server/omo-status.ts) */
   const omo = new OmoStatus({
     discover: (panes) => omoPanes(panes),
