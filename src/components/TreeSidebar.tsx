@@ -293,7 +293,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     const name = agent?.name?.trim() || null;
     const mark = paneMark(entry);
     const known = knownStatus(status(pane));
-    return row(pane, <><StateDot status={online ? known : null} /><span className="tree-kind" aria-hidden="true">{mark !== null ? <AgentMark agent={mark} size={14} /> : <Terminal />}</span></>, title,
+    return row(pane, <><span className="tree-dot-slot"><StateDot status={online ? known : null} /></span><span className="tree-kind" aria-hidden="true">{mark !== null ? <AgentMark agent={mark} size={14} /> : <Terminal />}</span></>, title,
       <>
         {name && <span className="tree-row-agent-name">@{name}</span>}
         {place && <small>{place} · {known === "blocked" ? t("Waits for your answer") : t("Finished, not seen yet")}</small>}
@@ -303,7 +303,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         <BackgroundBadge count={online ? pane.background_tasks : 0} /></>, under);
   };
 
-  const terminalRow = (pane: PaneInfo, under = false) => row(pane, <span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span>, displayPaneTitle(pane), null, null, null, under);
+  // an empty dot slot keeps a terminal's mark in line with the agents'
+  const terminalRow = (pane: PaneInfo, under = false) => row(pane, <><span className="tree-dot-slot" aria-hidden="true" /><span className="tree-kind is-terminal" aria-hidden="true"><Terminal /></span></>, displayPaneTitle(pane), null, null, null, under);
 
   // herdr-web's copies: the pane's id and name, and how another agent hands this one a task over herdr's CLI
   const paneCopies = (open: Extract<Menu, { kind: "pane" }>): RowMenuItem[] => {

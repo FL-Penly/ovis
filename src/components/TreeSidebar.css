@@ -198,6 +198,14 @@
 
 .tree-row-more[aria-expanded="true"] { display: inline-flex; }
 
+/* the dot's place, as wide as its widest (the spinner), so a row's mark does not move with its state */
+.tree-dot-slot {
+  display: inline-flex;
+  flex: 0 0 12px;
+  align-items: center;
+  justify-content: center;
+}
+
 /* herdr-web's dots, in this app's state colours: a faint ring at rest, a spinner while it works, a ringed dot for a question, a plain one for an unseen answer */
 .tree-dot {
   flex: 0 0 7px;
@@ -334,9 +342,9 @@
   flex: 0 0 auto;
   margin-left: var(--space-2);
   padding: 0 var(--space-1);
-  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text-dim);
+  background: var(--accent-tint);
+  color: var(--accent);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   line-height: 1.4;
