@@ -58,7 +58,7 @@ browser). Combo keys opens a panel in their place: Ctrl, Alt and Shift stay on u
 navigation grid and pages of letters and digits, symbols, and editing and function keys; Backspace and the arrows
 repeat while held. Every key goes through upstream's key bar path as an exact chord, so herdr encodes it. A tap on
 the grid raises no soft keyboard (xterm's textarea is `inputmode="none"`); a double tap raises it or puts it
-away. Over the input line, the last ten lines sent (a pick puts one back) and saved phrases (a tap adds one; ☆
+away (its focus report is not typed, as with upstream's keyboard control). Over the input line, the last ten lines sent (a pick puts one back) and saved phrases (a tap adds one; ☆
 saves the line; ✎ shows each phrase's ✕), kept per browser. A desktop keeps upstream's key bar.
 
 **New tab list.** ⌘T, a workspace's + and the tab strip's + list a terminal first, then the PC's installed agents; Enter opens the
@@ -144,18 +144,19 @@ Lines in upstream's own files are marked `downstream`, so `git grep -n downstrea
 ## Syncing with upstream
 
 ```sh
-scripts/downstream-sync.sh            # rebase onto upstream main, check, push main and the version tag
-scripts/downstream-sync.sh --no-push  # rebase and check only
+scripts/downstream-sync.sh            # merge upstream main, check, push main and the version tag
+scripts/downstream-sync.sh --no-push  # merge and check only
 scripts/downstream-sync.sh --no-upstream  # check and release this main as it is, between syncs
 ```
 
-`main` is upstream's `main` with this fork's commits on top, one per feature, so
-`git log upstream/main..main` lists the whole patch. The script rebases them onto `upstream/main` (keeping the
-old head as `backup/pre-sync`), runs typecheck, build and the downstream tests, and force-pushes `main`. On a
-conflict it aborts the rebase and lists the files (exit 2); resolve them by hand with
-`git rebase upstream/main`, and `git rerere` replays the same resolution next time. If a check fails it undoes
-the rebase (exit 3). A fix to a feature goes into that feature's commit (`git commit --fixup` and
-`git rebase -i --autosquash upstream/main`); a new feature is a commit of its own.
+`main` merges upstream's `main` in, never rebases onto it: a rebase flattens the earlier merges and replays
+every conflict they already solved. `git log --no-merges upstream/main..main` lists this fork's commits and
+`git diff upstream/main...main` the whole patch. The script merges `upstream/main` (keeping the old head as
+`backup/pre-sync`), runs typecheck, build and the downstream tests, and pushes `main`. On a conflict it aborts
+the merge and lists the files (exit 2); merge on a branch (`chore/sync-upstream-<version>`), resolve them
+there, open a PR and land it on `main` as it is, never squashed: a squash drops upstream as a parent, and the
+next sync would meet every conflict again. Then release with `--no-upstream`. `git rerere` replays a
+resolution next time. If a check fails it undoes the merge (exit 3).
 
 ## Releases and updates
 
@@ -165,9 +166,10 @@ from the running commit. Hence:
 - **Upstream's tags are not kept here.** Each sync tags the release with the version in `package.json` and
   moves that tag forward when it already exists. Never push upstream's tags to this fork: the updater would
   offer upstream's build, without these features.
-- **The tag sits on a bridge commit, not on `main`.** A rebased `main` does not descend from what installs
-  run, so the script tags a commit with `main`'s tree whose parents are `main` and the previous release. The
-  updater takes it as an update and builds exactly `main`; `main` itself never holds these commits.
+- **The tag sits on a bridge commit, not on `main`.** `main` does not descend from what installs run (the
+  previous bridge), so the script tags a commit with `main`'s tree whose parents are `main` and the previous
+  release: this version's tag, or the newest `v*` tag when a sync raises the version. The updater takes it as
+  an update and builds exactly `main`; `main` itself never holds these commits.
 
 Install (replaces upstream's plugin, which has the same id `devswha.ovis`):
 
