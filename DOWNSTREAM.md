@@ -131,10 +131,11 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `server/telemetry-default.test.ts` | Usage counts off on a fresh install. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 | `server/finishes.ts` (+ test) | The finish epoch and counts kept in `finishes.json`; `server/core/status.ts` gives it the file. |
+| `server/update-state-symlink.test.ts` | Updates under a home reached through a symlink (`launcherSpelling` in `server/update-state.ts`). |
 | `src/lib/localExtensions.ts`, `src/lib/localExtensionsStub.ts`, `server/localExtensions.ts` (+ test) | The local extension slot; `PaneTerminal.tsx` takes its phone keys and terminal setup, `server/index.ts` its routes. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
@@ -159,6 +160,12 @@ next sync would meet every conflict again. Then release with `--no-upstream`. `g
 resolution next time. If a check fails it undoes the merge (exit 3).
 
 ## Releases and updates
+
+**Updates under a symlinked home.** Upstream's supervisor finds its state dir from its own release's path,
+which Bun gives as the real path, while the plugin's launcher names it as `$HOME` spells it and resumes only a
+release record under that name. Where `$HOME` is a symlink (`/home/me` → `/data00/home/me`) every install was
+then dropped at the handover and the source checkout served again. The supervisor now keeps the launcher's
+name for the same dir.
 
 The in-app updater fetches `v*` tags from the install's `origin` and offers the newest one when it descends
 from the running commit. Hence:

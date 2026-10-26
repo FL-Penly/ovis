@@ -15,10 +15,21 @@ export function defaultStateDir(env: Record<string, string | undefined> = proces
   if (supervisor) {
     const directory = resolve(supervisor.directory);
     const stateDir = resolve(directory, "../../..");
-    if (basename(directory).startsWith("release-") && dirname(directory) === updateStateDir(supervisor.root, supervisor.port, stateDir)) return stateDir;
+    if (basename(directory).startsWith("release-") && dirname(directory) === updateStateDir(supervisor.root, supervisor.port, stateDir)) return launcherSpelling(env, stateDir); // downstream: DOWNSTREAM.md
   }
   const { legacy, next } = stateDirNames(env);
   return currentStateDir(legacy, next);
+}
+
+// downstream: Bun names its own files by their real path (import.meta.dir), while the launcher names
+// the state dir as $HOME spells it and resumes only a release record under that spelling
+// (current.json). Under a home reached through a symlink the supervisor keeps the launcher's name.
+function launcherSpelling(env: Record<string, string | undefined>, stateDir: string): string {
+  const same = (name: string): boolean => {
+    try { return realpathSync(name) === realpathSync(stateDir); } catch { return false; }
+  };
+  const { legacy, next } = stateDirNames(env);
+  return [currentStateDir(legacy, next), legacy, next].find(same) ?? stateDir;
 }
 
 /** The default state dir under its name from before the rename, and under its new one. */
