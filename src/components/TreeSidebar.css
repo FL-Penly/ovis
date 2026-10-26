@@ -163,7 +163,7 @@
 }
 
 .tree-row-main:disabled { cursor: default; opacity: 0.5; }
-.tree-row.is-terminal .tree-row-main { color: var(--text-dim); }
+/* a terminal reads as plainly as an agent: its >_ mark tells them apart */
 
 .tree-row-name {
   flex: 1;
