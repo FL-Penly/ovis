@@ -6,7 +6,14 @@ import { defineConfig, normalizePath, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// downstream: the extension in OVIS_LOCAL_DIR, set only by whoever runs this build (src/lib/localExtensions.ts);
+// unset, or with no client/index.tsx there, the stub that extends nothing
+const localDir = process.env["OVIS_LOCAL_DIR"];
+const localClient = localDir ? resolve(localDir, "client/index.tsx") : null;
+const localExtensions = localClient !== null && existsSync(localClient) ? localClient : fileURLToPath(new URL("./src/lib/localExtensionsStub.ts", import.meta.url));
 
 const xtermSource = normalizePath(buildXtermSource(fileURLToPath(new URL(".", import.meta.url))));
 
@@ -56,6 +63,10 @@ export default defineConfig({
     { find: /^@xterm\/xterm$/, replacement: `${xtermSource}/browser/public/Terminal.js` },
     { find: /^browser\//, replacement: `${xtermSource}/browser/` },
     { find: /^common\//, replacement: `${xtermSource}/common/` },
+    { find: /^ovis-local\/client$/, replacement: localExtensions }, // downstream
+    { find: /^ovis-src\//, replacement: `${fileURLToPath(new URL("./src", import.meta.url))}/` }, // downstream: what the extension imports of Ovis
     { find: "@shared", replacement: new URL("./shared", import.meta.url).pathname },
-  ] },
+  ],
+  // downstream: the extension lives outside this folder, so its React is this build's own
+  ...(localExtensions === localClient ? { dedupe: ["react", "react-dom"] } : {}) },
 });

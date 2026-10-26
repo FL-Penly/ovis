@@ -35,6 +35,7 @@ import { useDoubleTapKeyboard } from "../lib/useDoubleTapKeyboard.ts"; // downst
 import { LineExtras } from "./LineExtras.tsx"; // downstream
 import { rememberLine } from "../lib/phoneKeys.ts"; // downstream
 import { drivenByTests } from "../lib/upstreamTests.ts"; // downstream
+import { local } from "../lib/localExtensions.ts"; // downstream
 import { TerminalInput, type TerminalInputHandle } from "./TerminalInput.tsx";
 import { FindBar } from "./FindBar.tsx";
 import { TerminalViewportTools, type TerminalSearchState } from "./TerminalViewportTools.tsx";
@@ -624,7 +625,8 @@ export function PaneTerminal({
 
   // downstream: a touch screen's keys, double tap and line extras are mobile-terminal's, except under upstream's tests
   const phoneKeys = coarse && !drivenByTests;
-  useDoubleTapKeyboard(terminal, hostRef, phoneKeys && !chatView);
+  useDoubleTapKeyboard(terminal, hostRef, phoneKeys && !chatView, local.doubleTapMs);
+  useEffect(() => (terminal ? local.terminal?.(terminal) ?? undefined : undefined), [terminal]); // downstream: localExtensions.ts
   const { pressKey, toggleModifier, abortTurn } = useTypedKeys({ agent, agentStatus, barKeyRef, coarseRef, commitPendingText, compositionCommitPendingRef, composingRef, inputLineRef, modifiersRef, paneId, reassertIfStaleRef, setInputError, setModifiers, socketRef, stopKeyRef, tRef, termRef });
 
   // what a paste into the line is for: this PC's pane on this connection, while it can type there.
@@ -1242,9 +1244,13 @@ export function PaneTerminal({
         {secretInput ?? (!chatView && lineSlot && !secretActive && <TerminalInput key={paneId} ref={lineRef} active={active} owner={paneStorageId(machineId, paneId)} onComposing={setLineComposing} connected={connected && !held} onSend={sendRememberedLine} onEnter={pressEnter} onInsert={insertTerminalText} pasteTarget={pasteTarget} onPasting={setLinePasting} onFocus={reassertGrid} />)}
       </div>}
       {/* downstream: a touch screen takes mobile-terminal's rows and combo panel (PhoneKeys.tsx) */}
-      {presented && paneId !== null && !secretActive && !observing && !chatView && phoneKeys && <PhoneKeys disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
-        holdScope={`${paneStorageId(machineId, paneId)}:${view}`} directTyping={directTyping} onToggleDirect={toggleDirect} directDisabled={lineComposing}
-        onPaste={pasteIntoLine} pasteDisabled={linePasting} note={pasteGuidance ? t("Tap Input line to paste.") : null} onNoteDismiss={dismissPasteGuidance} />}
+      {presented && paneId !== null && !secretActive && !observing && !chatView && phoneKeys && (() => {
+        const props = { disabled: composing || !connected || !inputReady || held || ended, onKey: pressKey, holdScope: `${paneStorageId(machineId, paneId)}:${view}`,
+          directTyping, onToggleDirect: toggleDirect, directDisabled: lineComposing, onPaste: pasteIntoLine, pasteDisabled: linePasting,
+          note: pasteGuidance ? t("Tap Input line to paste.") : null, onNoteDismiss: dismissPasteGuidance };
+        // the slot's own keys, when local/ has them (localExtensions.ts)
+        return local.PhoneKeys ? <local.PhoneKeys {...props} terminal={terminal} paneId={paneId} machineId={machineId} /> : <PhoneKeys {...props} />;
+      })()}
       {presented && paneId !== null && !secretActive && !observing && !chatView && !phoneKeys && <KeyBar disabled={composing || !connected || !inputReady || held || ended} onKey={pressKey}
         holdScope={`${paneStorageId(machineId, paneId)}:${view}`}
         modifiers={modifiers} onToggleModifier={toggleModifier} items={settings.keyBarItems}
