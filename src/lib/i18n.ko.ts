@@ -39,6 +39,7 @@ const BASE: Record<string, string> = {
   "Chat": "채팅",
   "Agent default": "에이전트 기본값",
   "Phone & devices": "폰 및 기기",
+  "Access token": "접속 토큰",
   "Install app": "앱 설치",
 
   // ---- shortcuts (lib/shortcuts.ts labels) ----
@@ -241,9 +242,16 @@ const BASE: Record<string, string> = {
   "Try again": "다시 시도",
   // tabs: the strip over the pane, and the New tab dialog
   "New tab": "새 탭",
+  "Rename tab": "탭 이름 바꾸기",
   "Zoom pane": "패널 확대",
   "Unzoom pane": "패널 확대 해제",
   "This PC's bridge does not offer this yet": "이 PC의 브리지는 아직 이 기능을 제공하지 않습니다.",
+  "Move failed: {reason}": "이동 실패: {reason}",
+  "Pane swap was refused: {reason}": "패널 교환이 거부되었습니다: {reason}",
+  "The panes are in different tabs.": "패널이 서로 다른 탭에 있습니다.",
+  "Choose two different panes.": "서로 다른 두 패널을 선택하세요.",
+  "A pane is no longer available.": "패널을 더 이상 사용할 수 없습니다.",
+  "There is no pane on that side.": "해당 방향에 패널이 없습니다.",
   "Split pane right": "패널을 오른쪽으로 분할",
   "Split pane down": "패널을 아래로 분할",
   "Plan: {done} of {total} done": "계획: {total}개 중 {done}개 완료",

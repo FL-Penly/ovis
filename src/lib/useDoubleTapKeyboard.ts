@@ -10,7 +10,9 @@ const DOUBLE_TAP_MS = 350;
 const TAP_SLOP_PX = 12;
 const SECOND_TAP_SLOP_PX = 32;
 
-export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObject<HTMLElement | null>, enabled: boolean, windowMs = DOUBLE_TAP_MS): void {
+/** `focusMoveRef` is upstream's keyboard control flag: held while the tap moves the focus, so xterm's
+ * focus report (`ESC [ I` / `ESC [ O`) of that move is not sent as input (useTerminalMount.ts). */
+export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObject<HTMLElement | null>, enabled: boolean, windowMs = DOUBLE_TAP_MS, focusMoveRef?: RefObject<boolean>): void {
   useEffect(() => {
     const textarea = terminal?.textarea;
     const host = hostRef.current;
@@ -32,9 +34,14 @@ export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObje
         const typing = textarea.getAttribute("inputmode") !== "none";
         // the keyboard follows inputmode on the next focus, so the textarea is focused again; the
         // blur comes first, as its handler below puts inputmode back to none
-        textarea.blur();
-        textarea.setAttribute("inputmode", typing ? "none" : "text");
-        if (!typing) textarea.focus();
+        if (focusMoveRef) focusMoveRef.current = true;
+        try {
+          textarea.blur();
+          textarea.setAttribute("inputmode", typing ? "none" : "text");
+          if (!typing) textarea.focus();
+        } finally {
+          if (focusMoveRef) focusMoveRef.current = false;
+        }
         return;
       }
       last = tap;
@@ -50,5 +57,5 @@ export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObje
       textarea.removeEventListener("blur", onBlur);
       if (before === null) textarea.removeAttribute("inputmode"); else textarea.setAttribute("inputmode", before);
     };
-  }, [terminal, hostRef, enabled, windowMs]);
+  }, [terminal, hostRef, enabled, windowMs, focusMoveRef]);
 }
