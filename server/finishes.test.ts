@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentStatus, SessionSnapshot } from "../shared/protocol.ts";
@@ -128,4 +128,60 @@ it("recognizes a replaced socket file and Windows marker incarnation, never just
     expect(finishHerdrIdentity(first, "win32")).not.toBe(finishHerdrIdentity(second, "win32"));
     expect(finishHerdrIdentity(join(dir, "missing"), "linux")).toBeNull();
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// downstream (DOWNSTREAM.md): with a state file, a restart of this server keeps what browsers read
+it("keeps the epoch and each pane's count across a restart while herdr runs on", () => {
+  const dir = mkdtempSync(join(tmpdir(), "finish-state-"));
+  try {
+    const file = join(dir, "finishes.json");
+    const before = new Finishes(() => "daemon-a", file);
+    before.status("read", "working");
+    const read = before.status("read", "done");
+    before.status("busy", "done");
+    before.status("busy", "working");
+
+    const after = new Finishes(() => "daemon-a", file);
+    expect(after.epoch).toBe(read.finish_epoch);
+    // still DONE after the restart: the same finish, so a browser's read record still matches it
+    expect(after.status("read", "done")).toEqual(read);
+    // it finished while this server was down: a new finish, not the one read before
+    expect(after.status("busy", "done").finish_id).toBe(2);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("starts afresh after a restart when herdr restarted too, or the file is unreadable", () => {
+  const dir = mkdtempSync(join(tmpdir(), "finish-state-"));
+  try {
+    const file = join(dir, "finishes.json");
+    const first = new Finishes(() => "daemon-a", file).status("p", "done");
+    const newHerdr = new Finishes(() => "daemon-b", file);
+    expect(newHerdr.epoch).not.toBe(first.finish_epoch);
+    expect(newHerdr.status("p", "done").finish_id).toBe(1);
+
+    writeFileSync(file, "{ not json");
+    expect(new Finishes(() => "daemon-b", file).epoch).not.toBe(newHerdr.epoch);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("writes the file only when a count or a DONE changes", () => {
+  const dir = mkdtempSync(join(tmpdir(), "finish-state-"));
+  try {
+    const file = join(dir, "finishes.json");
+    const finishes = new Finishes(() => "daemon-a", file);
+    finishes.status("p", "done");
+    const written = readFileSync(file, "utf8");
+    writeFileSync(file, "marker");
+    finishes.status("p", "done");
+    expect(readFileSync(file, "utf8")).toBe("marker");
+    finishes.status("p", "working");
+    expect(readFileSync(file, "utf8")).not.toBe("marker");
+    expect(JSON.parse(written)).toMatchObject({ herdr: "daemon-a", panes: { p: { id: 1, done: true } } });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

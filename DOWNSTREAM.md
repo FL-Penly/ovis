@@ -95,6 +95,13 @@ pane's chat could not tell its own conversation from the fork's (and showed the 
 the original was backtracked to the fork point. A rollout another pane was started on with
 `codex resume <thread>` is now left out when the screen matches several, so each pane shows its own.
 
+**Read finishes survive a restart.** A browser keys a finish it has read by the server's finish epoch and the
+pane's finish count (`shared/seen.ts`). Upstream draws a new epoch each time this server starts, so after an
+update or a restart every agent still finished showed as not seen again. The epoch and the counts now live in
+`finishes.json` in the state directory and are taken up again while herdr runs on (its socket's identity is
+the same); a new herdr still starts a new epoch. A pane that finished while the server was down counts a new
+finish (`server/finishes.ts`).
+
 **A local extension slot.** One person's own extension, kept out of git, in the folder `OVIS_LOCAL_DIR` names
 (set in the plugin's `env` file, so the updater's builds and the server both see it). Unset, nothing changes:
 the build takes a stub that extends nothing, and `/api/local/*` answers 404. Its `client/index.tsx` is built in
@@ -123,10 +130,11 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `src/components/GitPanel.tsx` (+ css), `src/lib/gitPanel.ts` (+ test) | The panel, its requests and the graph's lanes. |
 | `server/telemetry-default.test.ts` | Usage counts off on a fresh install. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
+| `server/finishes.ts` (+ test) | The finish epoch and counts kept in `finishes.json`; `server/core/status.ts` gives it the file. |
 | `src/lib/localExtensions.ts`, `src/lib/localExtensionsStub.ts`, `server/localExtensions.ts` (+ test) | The local extension slot; `PaneTerminal.tsx` takes its phone keys and terminal setup, `server/index.ts` its routes. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
