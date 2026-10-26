@@ -307,8 +307,16 @@
 
 .tree-rest-workspace.is-open > .tree-head { background: var(--side-selected); }
 
-.tree-rest-workspace .tree-toggle[aria-current="true"],
-.tree-group .tree-toggle[aria-current="true"] { color: var(--text); }
+.tree-rest-workspace .tree-toggle[aria-current="true"] { color: var(--text); }
+
+/* a workspace folded over the open pane: its head stands for that row, so it is drawn as the row is.
+   The same height as any head, its padding evened so the fill sits around the name */
+.tree-head.is-current { background: var(--side-selected); }
+.tree-head.is-current .tree-toggle {
+  padding-block: 6px 7px;
+  color: var(--text-strong);
+  font-weight: var(--fw-semibold);
+}
 
 .tree-rest-workspace .tree-toggle:disabled { cursor: default; }
 

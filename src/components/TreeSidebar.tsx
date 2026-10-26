@@ -396,9 +396,10 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       const branch = branches.get(workspace.workspace_id)?.branch ?? null;
       return branch && branch !== workspace.label ? <span className="tree-head-branch">{branch}</span> : null;
     };
-    const head = (workspace: WorkspaceInfo, toggle: ReactNode) => {
+    /** `current`: folded over the open pane, drawn as the open pane's row is */
+    const head = (workspace: WorkspaceInfo, toggle: ReactNode, current = false) => {
       const addLabel = t("New tab in {name}", { name: workspace.label });
-      return <div className="tree-head" onContextMenu={(event) => openMenu(event, { kind: "workspace", workspace }, true)}>
+      return <div className={`tree-head${current ? " is-current" : ""}`} onContextMenu={(event) => openMenu(event, { kind: "workspace", workspace }, true)}>
         {toggle}
         <button type="button" className="tree-add" aria-label={addLabel} title={addLabel} disabled={!online}
           onClick={() => openQuickTab({ machineId: machine.id, workspaceId: workspace.workspace_id })}><Plus aria-hidden="true" /></button>
@@ -446,7 +447,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
       const hot = open || !online ? null : hottest(agents.map(({ pane }) => status(pane)));
       return <div key={workspace.workspace_id} className={`tree-group${dropMark(workspace.workspace_id)}`} role="group" aria-label={workspace.label}
         {...dropZone("workspace", workspace.workspace_id, workspace.workspace_id)}>
-        {/* folded over the open pane: its head is lit, as a Terminals only line holding it is */}
+        {/* folded over the open pane: its head is drawn as the open pane's row is */}
         {head(workspace, <button type="button" className="tree-toggle" aria-expanded={open} aria-current={!open && holdsSelection ? "true" : undefined} draggable={online}
           onDragStart={(event) => {
             event.dataTransfer.effectAllowed = "move";
@@ -462,7 +463,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
           {hot && <StateDot status={hot} />}
           <span className="tree-head-name">{workspace.label}</span>
           {branchOf(workspace)}
-        </button>)}
+        </button>, !open && holdsSelection)}
         {open && tabRows(snapshot, workspace.workspace_id, (pane) => agentOf.has(pane.pane_id) || terminalIds.has(pane.pane_id) ? pane : null)
           .map(({ tab, head, under }) => <div key={tab.tab_id} className={`tree-tab${dropMark(tab.tab_id)}`} role="group" aria-label={tabLabel(tab, t)}
             {...dropZone("tab", tab.tab_id, workspace.workspace_id)}>
