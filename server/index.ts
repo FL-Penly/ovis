@@ -4,6 +4,7 @@ import { connectionData, createCore, type SocketData } from "./core/index.ts";
 import { ClientConnectionLog } from "./client-connection-log.ts";
 import { RequestLog } from "./request-log.ts";
 import { handlePaneRequest } from "./pane-routes.ts";
+import { handleLocalRequest } from "./localExtensions.ts"; // downstream: DOWNSTREAM.md
 import { handleIntegrationsRequest } from "./integrations-routes.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { OrderSequence } from "./order-sequence.ts";
@@ -516,6 +517,8 @@ export function createServer(
 
       const paneResponse = await handlePaneRequest(request, url, pathname, options);
       if (paneResponse) return paneResponse;
+      const localResponse = await handleLocalRequest(request, url, pathname, readOnly); // downstream: DOWNSTREAM.md
+      if (localResponse) return localResponse; // downstream
 
       const tasksResponse = await handleTasksRequest(request, url, pathname, { omo, claudeAgents });
       if (tasksResponse) return tasksResponse;

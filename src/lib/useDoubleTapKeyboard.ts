@@ -10,7 +10,7 @@ const DOUBLE_TAP_MS = 350;
 const TAP_SLOP_PX = 12;
 const SECOND_TAP_SLOP_PX = 32;
 
-export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObject<HTMLElement | null>, enabled: boolean): void {
+export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObject<HTMLElement | null>, enabled: boolean, windowMs = DOUBLE_TAP_MS): void {
   useEffect(() => {
     const textarea = terminal?.textarea;
     const host = hostRef.current;
@@ -27,7 +27,7 @@ export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObje
       const touch = event.changedTouches[0];
       if (!start || !touch || event.touches.length > 0 || Math.hypot(touch.clientX - start.x, touch.clientY - start.y) > TAP_SLOP_PX) { last = null; return; }
       const tap = { at: event.timeStamp, x: touch.clientX, y: touch.clientY };
-      if (last && tap.at - last.at < DOUBLE_TAP_MS && Math.hypot(tap.x - last.x, tap.y - last.y) < SECOND_TAP_SLOP_PX) {
+      if (last && tap.at - last.at < windowMs && Math.hypot(tap.x - last.x, tap.y - last.y) < SECOND_TAP_SLOP_PX) {
         last = null;
         const typing = textarea.getAttribute("inputmode") !== "none";
         // the keyboard follows inputmode on the next focus, so the textarea is focused again; the
@@ -50,5 +50,5 @@ export function useDoubleTapKeyboard(terminal: Terminal | null, hostRef: RefObje
       textarea.removeEventListener("blur", onBlur);
       if (before === null) textarea.removeAttribute("inputmode"); else textarea.setAttribute("inputmode", before);
     };
-  }, [terminal, hostRef, enabled]);
+  }, [terminal, hostRef, enabled, windowMs]);
 }
