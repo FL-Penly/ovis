@@ -13,7 +13,7 @@
  * one directory instead, for those who would rather keep them out of the working tree.
  */
 
-import { lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { imageType } from "./codex-images.ts";
@@ -101,6 +101,21 @@ function pasteDirectoryOverride(): string {
  * link: the ignore file would land in the link's target, another folder or repository, and hide files it never wrote.
  */
 export function preparePasteDirectory(cwd: string | null | undefined): string {
+  try {
+    return preparedDirectory(cwd);
+  } catch (error) {
+    // downstream (DOWNSTREAM.md): a project folder where `.ovis` cannot be made (a read-only checkout) takes
+    // the temp dir's, as a pane with no folder does. A `.ovis` that is there, and a folder named in
+    // OVIS_PASTE_DIR, still fail loudly: they were the user's to fix
+    if (cwd === null || cwd === undefined || pasteDirectoryOverride() !== "" || existsSync(pasteDirectory(cwd))
+      || !UNWRITABLE.has((error as NodeJS.ErrnoException).code ?? "")) throw error;
+    return preparedDirectory(null);
+  }
+}
+
+const UNWRITABLE = new Set(["EACCES", "EPERM", "EROFS"]);
+
+function preparedDirectory(cwd: string | null | undefined): string {
   const directory = pasteDirectory(cwd);
   mkdirSync(directory, { recursive: true });
   if (pasteDirectoryOverride() === "" && !lstatSync(directory).isSymbolicLink()) {

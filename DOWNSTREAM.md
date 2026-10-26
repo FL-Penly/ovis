@@ -85,6 +85,11 @@ row's other button opens it in upstream's diff viewer. Git runs as argv with no 
 when it refuses. Docked last in the row from 980px, over the pane below that; on a phone (below 769px) it is
 in the header's ⋯ menu, under Browse files.
 
+**Images in a read-only project.** A pasted or attached image goes in `<pane folder>/.ovis/`; when `.ovis` cannot
+be made there (a read-only checkout), it goes in the temp dir's `ovis/.ovis/`, as for a pane with no folder,
+instead of failing (`server/paste.ts`, one hunk). A `.ovis` already there and a folder named in `OVIS_PASTE_DIR`
+still fail as before.
+
 **A Codex chat beside its fork.** A fork holds every answer of the conversation it was cut from, so a Codex
 pane's chat could not tell its own conversation from the fork's (and showed the terminal), most of all once
 the original was backtracked to the fork point. A rollout another pane was started on with
@@ -112,7 +117,7 @@ the original was backtracked to the fork point. A rollout another pane was start
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`

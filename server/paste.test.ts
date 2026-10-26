@@ -215,6 +215,21 @@ describe("preparePasteDirectory", () => {
     expect(existsSync(join(outside, "missing"))).toBe(false);
   });
 
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("falls back to the temp dir's for a project folder it cannot write", () => {
+    delete process.env["OVIS_PASTE_DIR"];
+    const tmp = temp();
+    process.env["TMPDIR"] = tmp;
+    const cwd = temp();
+    chmodSync(cwd, 0o555);
+    try {
+      expect(preparePasteDirectory(cwd)).toBe(join(tmp, "ovis", ".ovis"));
+      expect(existsSync(join(cwd, ".ovis"))).toBe(false);
+      // a folder the user named is theirs: it fails, it is not swapped for another
+      process.env["OVIS_PASTE_DIR"] = join(cwd, "pastes");
+      expect(() => preparePasteDirectory(cwd)).toThrow();
+    } finally { chmodSync(cwd, 0o755); }
+  });
+
   it.skipIf(process.platform === "win32")("writes no ignore file through a .ovis that is a link to another folder", () => {
     delete process.env["OVIS_PASTE_DIR"];
     const outside = temp();
