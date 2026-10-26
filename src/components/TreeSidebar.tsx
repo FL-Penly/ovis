@@ -280,7 +280,9 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         <span className="tree-row-name"><span className="tree-row-title">{title}</span>{extra}</span>
         {trail}
       </button>
+      {/* kept drawn while its menu is open (TreeSidebar.css): the menu is placed against it, and a hidden one sits at 0,0 */}
       <button type="button" className="tree-row-more" aria-label={t("Actions for {title}", { title })} aria-haspopup="menu"
+        aria-expanded={menu?.kind === "pane" && menu.pane.pane_id === pane.pane_id && !menu.point}
         onClick={(event) => openMenu(event, target, false)}><Ellipsis aria-hidden="true" /></button>
     </div>;
   };
