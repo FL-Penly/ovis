@@ -138,6 +138,7 @@ Lines in upstream's own files are marked `downstream`, so `git grep -n downstrea
 ```sh
 scripts/downstream-sync.sh            # rebase onto upstream main, check, push main and the version tag
 scripts/downstream-sync.sh --no-push  # rebase and check only
+scripts/downstream-sync.sh --no-upstream  # check and release this main as it is, between syncs
 ```
 
 `main` is upstream's `main` with this fork's commits on top, one per feature, so

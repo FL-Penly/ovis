@@ -4,12 +4,20 @@
 #
 #   scripts/downstream-sync.sh            rebase, check, push
 #   scripts/downstream-sync.sh --no-push  rebase and check only
+#   scripts/downstream-sync.sh --no-upstream  check and push this main as it is: a release between syncs
 #
 # Exit codes: 0 synced or already up to date, 2 rebase conflict (aborted), 3 checks failed (rebase undone).
 set -euo pipefail
 
 push=1
-[ "${1:-}" = "--no-push" ] && push=0
+sync=1
+for arg in "$@"; do
+  case "$arg" in
+    --no-push) push=0 ;;
+    --no-upstream) sync=0 ;;
+    *) printf '[downstream-sync] unknown option %s\n' "$arg"; exit 1 ;;
+  esac
+done
 
 cd "$(git rev-parse --show-toplevel)"
 say() { printf '[downstream-sync] %s\n' "$*"; }
@@ -18,9 +26,15 @@ say() { printf '[downstream-sync] %s\n' "$*"; }
 git diff --quiet && git diff --cached --quiet || { say "the working tree has changes; commit or stash them first"; exit 1; }
 git remote get-url upstream >/dev/null 2>&1 || git remote add upstream https://github.com/devswha/ovis.git
 
+before=$(git rev-parse HEAD)
+if [ "$sync" = 0 ]; then
+  # main must already be origin's main or ahead of it: a release never drops a pushed commit
+  git fetch --no-tags origin main
+  git merge-base --is-ancestor origin/main HEAD || { say "main is behind origin/main; pull first"; exit 1; }
+  say "not syncing with upstream (--no-upstream)"
+else
 # Upstream's tags are never fetched: this fork's v* tags are its own releases (DOWNSTREAM.md).
 git fetch --no-tags upstream main
-before=$(git rev-parse HEAD)
 # main is upstream's main with this fork's few commits on top: a rebase, never a merge.
 if git merge-base --is-ancestor upstream/main HEAD; then
   say "already on upstream $(git rev-parse --short upstream/main)"
@@ -33,6 +47,7 @@ else
     say "resolve them with: git rebase upstream/main (git rerere replays a resolution next time)"
     exit 2
   fi
+fi
 fi
 
 if ! { bun install --frozen-lockfile &&
