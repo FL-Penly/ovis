@@ -73,6 +73,12 @@ A request may set that variable alone, as a count (`shared/long-run.ts`). The si
 whose process runs with a window of its own (*500k*), read from the process's environment (Linux), so one
 started by hand counts too.
 
+**A goal not met yet.** A Claude Code or Codex row of this PC whose `/goal` is not met yet carries a `goal`
+mark beside its other marks: herdr reads an agent at rest as done whatever its goal, and a goal often waits on
+background work. The mark changes no state; its title says the goal and how long it has run, or why it is
+paused (a rate limit, Codex's blocked or a spent budget). It goes once the goal is met or cleared. Codex's
+comes from its home's `goals_1.sqlite`, Claude Code's from the last `goal_status` record of its transcript.
+
 **Source Control.** A Git button beside Browse files (this PC's panes) opens a panel after VS Code's for the
 repository around the pane's folder: the branch (a press switches to another or creates one) and sync with its
 ahead and behind counts, fetch, pull and push (a branch with no upstream is published to origin); the commit
@@ -125,6 +131,7 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `src/components/QuickTabPicker.tsx` (+ css) | The new tab list; `openTerminalTab`'s `agent` (`src/lib/actions.ts`, `App.tsx`) runs the pick. |
 | `server/split-launch.ts`, `src/lib/splitLaunch.ts` | `POST /api/pane/split-with {pane_id, direction, agent?, env?}` and `openSplit` (`src/lib/actions.ts`, `App.tsx`); `PaneCanvas.tsx` and the sidebar open the list for a split. |
 | `shared/long-run.ts`, `server/long-run.ts` (+ test), `src/lib/longRun.ts` | The long run's window and the one variable a request may set; `GET /api/pane/long-run` and the sidebar's mark. |
+| `server/goal-status.ts` (+ test), `src/lib/openGoals.ts` | `GET /api/pane/goals` and the sidebar's `goal` mark. |
 | `src/lib/navShortcuts.ts` (+ test) | The workspace and tab keys; ⌘W reaches the open tab's strip through `useCloseTabKey`. |
 | `shared/git-panel.ts`, `server/git-panel.ts`, `server/git-panel-routes.ts` (+ test) | `/api/pane/git/{status,log,branches}` (GET) and `/api/pane/git/{stage,unstage,discard,commit,push,pull,fetch,checkout}` (POST). |
 | `src/components/GitPanel.tsx` (+ css), `src/lib/gitPanel.ts` (+ test) | The panel, its requests and the graph's lanes. |
@@ -135,7 +142,7 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `src/lib/localExtensions.ts`, `src/lib/localExtensionsStub.ts`, `server/localExtensions.ts` (+ test) | The local extension slot; `PaneTerminal.tsx` takes its phone keys and terminal setup, `server/index.ts` its routes. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (6 lines: fork, git and long run), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`

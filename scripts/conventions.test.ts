@@ -132,6 +132,7 @@ describe("demo transport", () => {
     "/api/pane/fork": "downstream (DOWNSTREAM.md): forking starts a real agent, which the demo has none of",
     "/api/pane/split-with": "downstream (DOWNSTREAM.md): offered for this PC's panes only, which starts real agents",
     "/api/pane/long-run": "downstream (DOWNSTREAM.md): read from real processes' environment; the sidebar takes a 404 as no long run",
+    "/api/pane/goals": "downstream (DOWNSTREAM.md): read from real transcripts and Codex's goal store; the sidebar takes a 404 as no open goal",
     "/api/local": "downstream (DOWNSTREAM.md): answered only by a checkout's own local/ extension, which the demo build has none of",
     "/api/auth": "the demo is never locked (/api/health says authenticated), so neither the token form nor sign-out runs",
     "/api/bridge": "a remote PC's bridge endpoint, asked by another server, never by the browser",

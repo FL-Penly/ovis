@@ -143,4 +143,6 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Move the tab down": "タブを下へ移動",
   "Split it to the right": "右に分割",
   "Split it below": "下に分割",
+  "Goal not met yet: {objective}": "Goal 未達成：{objective}",
+  "Goal paused ({reason}): {objective}": "Goal 一時停止（{reason}）：{objective}",
 };

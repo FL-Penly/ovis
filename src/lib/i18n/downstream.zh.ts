@@ -143,4 +143,6 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Move the tab down": "标签页下移",
   "Split it to the right": "向右分屏",
   "Split it below": "向下分屏",
+  "Goal not met yet: {objective}": "Goal 未完成：{objective}",
+  "Goal paused ({reason}): {objective}": "Goal 已暂停（{reason}）：{objective}",
 };

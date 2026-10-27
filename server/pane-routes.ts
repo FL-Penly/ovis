@@ -22,6 +22,7 @@ import { expandedDirectory } from "./workspace-routes.ts";
 import { handleForkRequest } from "./fork-routes.ts"; // downstream: DOWNSTREAM.md
 import { handleGitRequest } from "./git-panel-routes.ts"; // downstream: DOWNSTREAM.md
 import { handleLongRunRequest } from "./long-run.ts"; // downstream: DOWNSTREAM.md
+import { handleGoalsRequest } from "./goal-status.ts"; // downstream: DOWNSTREAM.md
 
 /** the native stores createServer was given; unset, each reader finds its own */
 export type PaneStores = { codexHome?: string; grokHome?: string; museData?: string; opencodeDb?: string; devinDbPath?: string; hermesHome?: string; openCodeStateDir?: string };
@@ -39,6 +40,7 @@ export async function handlePaneRequest(request: Request, url: URL, pathname: st
   if (pathname === "/api/pane/fork") return handleForkRequest(request, pathname, options); // downstream: DOWNSTREAM.md
   if (pathname.startsWith("/api/pane/git/")) { const git = await handleGitRequest(request, url, pathname); if (git) return git; } // downstream
   if (pathname === "/api/pane/long-run") return handleLongRunRequest(request, pathname); // downstream
+  if (pathname === "/api/pane/goals") return handleGoalsRequest(request, pathname); // downstream
 
   if (pathname === "/api/pane/rename") {
     setRequestRoute(pathname);

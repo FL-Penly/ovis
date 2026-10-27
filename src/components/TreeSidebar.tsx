@@ -36,6 +36,8 @@ import { RowMenu, type RowMenuItem } from "./RowMenu.tsx";
 import { BackgroundBadge, displayPaneTitle } from "./Sidebar.tsx";
 import { windowLabel } from "../../shared/long-run.ts";
 import { useLongRunPanes } from "../lib/longRun.ts";
+import { useOpenGoals, type OpenGoal } from "../lib/openGoals.ts";
+import { formatGoalTime } from "../lib/goals.ts";
 import "./TreeSidebar.css";
 
 type Layout = "tree" | "classic";
@@ -269,6 +271,13 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
   }, [selectedPaneId, snapshot, machine.id]);
   const longRuns = useLongRunPanes(machine.id, useMemo(() => snapshot?.panes.filter((pane) => pane.agent === "claude").map((pane) => pane.pane_id) ?? [], [snapshot]));
   const status = (pane: PaneInfo): AgentStatus | undefined => online ? activity.status(machine.id, pane) : undefined;
+  const goals = useOpenGoals(machine.id, snapshot?.panes.filter((pane) => pane.agent === "claude" || pane.agent === "codex").map((pane) => `${pane.pane_id}:${status(pane) ?? ""}`) ?? []);
+  const goalTitle = (goal: OpenGoal): string => {
+    const objective = goal.objective.length > 300 ? `${goal.objective.slice(0, 300)}…` : goal.objective;
+    const age = goal.since !== null && Date.now() >= goal.since ? formatGoalTime((Date.now() - goal.since) / 1000) : null;
+    const said = goal.paused !== null ? t("Goal paused ({reason}): {objective}", { reason: goal.paused, objective }) : t("Goal not met yet: {objective}", { objective });
+    return age === null ? said : `${said} · ${age}`;
+  };
   const copy = (text: string, said: string) => void copyText(text).then((ok) => {
     setCopied(ok ? said : t("Couldn't copy: the browser refused the clipboard"));
     window.setTimeout(() => setCopied(null), 2500);
@@ -321,7 +330,8 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
         {place && <small>{place} · {known === "blocked" ? t("Waits for your answer") : t("Finished, not seen yet")}</small>}
       </>, entry,
       // subagents and background commands still running: an agent at rest may still be waiting on them
-      <>{longRuns[pane.pane_id] && <span className="tree-long-run" title={t("Compacts at {size} tokens (long run)", { size: windowLabel(longRuns[pane.pane_id]!) })}>{windowLabel(longRuns[pane.pane_id]!)}</span>}
+      <>{goals[pane.pane_id] && <span className="tree-goal" title={goalTitle(goals[pane.pane_id]!)}>goal</span>}
+        {longRuns[pane.pane_id] && <span className="tree-long-run" title={t("Compacts at {size} tokens (long run)", { size: windowLabel(longRuns[pane.pane_id]!) })}>{windowLabel(longRuns[pane.pane_id]!)}</span>}
         <BackgroundBadge count={online ? pane.background_tasks : 0} /></>, under);
   };
 

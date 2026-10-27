@@ -143,4 +143,6 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Move the tab down": "탭을 아래로 이동",
   "Split it to the right": "오른쪽으로 분할",
   "Split it below": "아래로 분할",
+  "Goal not met yet: {objective}": "Goal 미완료: {objective}",
+  "Goal paused ({reason}): {objective}": "Goal 일시 중지({reason}): {objective}",
 };

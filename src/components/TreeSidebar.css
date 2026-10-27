@@ -346,8 +346,9 @@
   .tree-layout-toggle:active { background: var(--side-hover); opacity: 1; }
 }
 
-/* a long run's compact window (lib/longRun.ts), quieter than the state */
-.tree-long-run {
+/* a long run's compact window (lib/longRun.ts) and a goal not met yet (lib/goals.ts), quieter than the state */
+.tree-long-run,
+.tree-goal {
   flex: 0 0 auto;
   margin-left: var(--space-2);
   padding: 0 var(--space-1);
