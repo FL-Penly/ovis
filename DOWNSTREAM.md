@@ -108,6 +108,13 @@ update or a restart every agent still finished showed as not seen again. The epo
 the same); a new herdr still starts a new epoch. A pane that finished while the server was down counts a new
 finish (`server/finishes.ts`).
 
+**A finish picked by hand is read.** Upstream reads a finish only when the chat stands at its end and the
+transcript ends in a final answer, so a chat reopened where it was left, or an agent at rest after a tool call
+(a background command, a compaction), kept its green dot however often its row was pressed. A press on a row of
+the tree sidebar now reads the finish it shows once the pane's content is drawn for it on a visible page with no
+dialog or menu over it (ChatView's `data-pane-shown`, or the terminal's own marker), wherever the chat is
+scrolled. A later finish is read as upstream reads it (`src/lib/explicitPick.ts`).
+
 **A local extension slot.** One person's own extension, kept out of git, in the folder `OVIS_LOCAL_DIR` names
 (set in the plugin's `env` file, so the updater's builds and the server both see it). Unset, nothing changes:
 the build takes a stub that extends nothing, and `/api/local/*` answers 404. Its `client/index.tsx` is built in
@@ -138,11 +145,12 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `server/telemetry-default.test.ts` | Usage counts off on a fresh install. |
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 | `server/finishes.ts` (+ test) | The finish epoch and counts kept in `finishes.json`; `server/core/status.ts` gives it the file. |
+| `src/lib/explicitPick.ts` (+ test) | A row picked by hand reads the finish it shows; the tree sidebar notes the press, `src/lib/sidebarActivity.tsx` reads it. |
 | `server/update-state-symlink.test.ts` | Updates under a home reached through a symlink (`launcherSpelling` in `server/update-state.ts`). |
 | `src/lib/localExtensions.ts`, `src/lib/localExtensionsStub.ts`, `server/localExtensions.ts` (+ test) | The local extension slot; `PaneTerminal.tsx` takes its phone keys and terminal setup, `server/index.ts` its routes. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt),
+`server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt, `data-pane-shown`), `src/lib/sidebarActivity.tsx` (a row picked by hand, 4 lines),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`

@@ -1,5 +1,5 @@
 /** Shared raw Activity order and acknowledgement of server-identified finishes, shared by the browsers of this server. */
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { Machine } from "../../shared/machines.ts";
 import type { AgentStatus, HerdrPane } from "../../shared/protocol.ts";
 import type { SeenFinish } from "../../shared/seen.ts";
@@ -7,6 +7,7 @@ import { liveSeqs, newSeqMemory, shownStatus, type SeenRecord, type SeqMemory } 
 import { cleanSeen, loadSeen, saveSeen, seenKey, SEEN_LIMIT, subscribeSeen } from "./seenFinishes.ts";
 import { conversationFinishEvidence } from "./panePresentation.ts";
 import { fetchBridgeHealth } from "./api.ts";
+import { pickShown, pickVersion, subscribePick } from "./explicitPick.ts"; // downstream: DOWNSTREAM.md
 
 export interface SidebarActivity {
   seqs(machineId: string): ReadonlyMap<string, number>;
@@ -58,6 +59,7 @@ export function useSidebarActivityState(machines: readonly Machine[], selectedMa
   const shared = useRef(new Map<string, SharedFinish>());
   const recovery = useRef<ShareRecovery>({ timer: undefined, unauthorized: false, running: false, wait: 1_000 });
   const shareRef = useRef(share); shareRef.current = share;
+  const picked = useSyncExternalStore(subscribePick, pickVersion, pickVersion); // downstream: a row picked by hand
   useEffect(() => {
     const onVisibility = () => setPageVisible(document.visibilityState === "visible");
     document.addEventListener("visibilitychange", onVisibility);
@@ -143,8 +145,9 @@ export function useSidebarActivityState(machines: readonly Machine[], selectedMa
       epochs.current.delete(machine.id);
       epochs.current.set(machine.id, epoch);
       while (epochs.current.size > SEEN_LIMIT) epochs.current.delete(epochs.current.keys().next().value!);
-      const pane = machine.state === "connected" && machine.id === selectedMachineId && pageVisible && paneInFront()
+      const presented = machine.state === "connected" && machine.id === selectedMachineId && pageVisible
         ? machine.snapshot?.panes.find((pane) => pane.pane_id === presentedPaneId) : undefined;
+      const pane = presented && (paneInFront() || pickShown(machine.id, presented, epoch)) ? presented : undefined; // downstream: a row picked by hand
       if (pane?.agent_status === "done" && !pane.background_wait && pane.finish_id !== undefined && pane.finish_id > 0) {
         const answer = conversationFinishEvidence.answer(seenKey(machine.id, epoch, pane.pane_id), pane.finish_id);
         saveSeen(machine.id, epoch, pane.pane_id, pane.finish_id, answer);
@@ -197,7 +200,7 @@ export function useSidebarActivityState(machines: readonly Machine[], selectedMa
       if (epoch) next.set(machine.id, { epoch, record: loadSeen(machine.id, epoch) });
     }
     if (!sameSeen(seenRef.current, next)) setSeen(next);
-  }, [machines, selectedMachineId, presentedPaneId, paneInFront, pageVisible]);
+  }, [machines, selectedMachineId, presentedPaneId, paneInFront, pageVisible, picked]); // downstream: picked
 
   return useMemo<SidebarActivity>(() => ({
     seqs: (machineId) => seqsByMachine.get(machineId) ?? NO_SEQS,
