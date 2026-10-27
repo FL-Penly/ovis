@@ -37,6 +37,7 @@ import { BackgroundBadge, displayPaneTitle } from "./Sidebar.tsx";
 import { windowLabel } from "../../shared/long-run.ts";
 import { useLongRunPanes } from "../lib/longRun.ts";
 import { useOpenGoals, type OpenGoal } from "../lib/openGoals.ts";
+import { notePick } from "../lib/explicitPick.ts";
 import { formatGoalTime } from "../lib/goals.ts";
 import "./TreeSidebar.css";
 
@@ -298,7 +299,7 @@ export function TreeWorkspaces({ machine, snapshot, online, selectedPaneId, acti
     return <div key={pane.pane_id} className={`tree-row${selected ? " is-active" : ""}${terminal ? " is-terminal" : ""}${under ? " is-under" : ""}`}
       onContextMenu={(event) => openMenu(event, target, true)}>
       <button type="button" className="tree-row-main" disabled={!online} aria-current={selected ? "true" : undefined}
-        title={[title, pane.cwd].filter(Boolean).join("\n")} onClick={() => actions.selectPane(pane.pane_id)}
+        title={[title, pane.cwd].filter(Boolean).join("\n")} onClick={() => { notePick(machine.id, pane, snapshot?.finish_epoch); actions.selectPane(pane.pane_id); }}
         draggable={online}
         onDragStart={(event) => {
           event.dataTransfer.effectAllowed = "move";

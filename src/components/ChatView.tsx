@@ -2151,7 +2151,8 @@ export const ChatView = memo(function ChatView({ paneId, presentationKey, finish
     <div className="chat-frame" data-pane-content={active && visible && !covered && connected && !ended && loaded && error === null && !away && !newMessages
       && endPresentation?.state === state && endPresentation.key === presentationKey
       && (agentStatus !== "done" || conversationFinishPresented({ source: state.conversationSource, turns: state.turns }))
-      && readPresentation === presentationKey && (state.source === "conversation" ? ChatTimeline !== null : agent === null) ? presentationKey : undefined}>
+      && readPresentation === presentationKey && (state.source === "conversation" ? ChatTimeline !== null : agent === null) ? presentationKey : undefined}
+      data-pane-shown={active && visible && !covered && connected && !ended && loaded && error === null ? presentationKey : undefined /* downstream: a row picked by hand (explicitPick.ts) */}>
     <div className="chat-frame-body">
     {state.source === "conversation" ? ChatTimeline === null
       // its chunk is still loading: no turn is read until it arrives, so this is the loading state
