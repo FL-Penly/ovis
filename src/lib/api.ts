@@ -91,7 +91,7 @@ import { MAX_ATTACHMENT_BYTES } from "../../shared/attachments.ts";
 import { t } from "./i18n.ts";
 import { chatReadDeadlineMs, withChatReadDeadline } from "./chatReadDeadline.ts";
 import { movingHerdrFocus } from "./followFocus.ts";
-import type { UsageLoginAccounts, UsageLoginProvider, UsageLoginRequest, UsageLoginStarted } from "../../shared/usage-login.ts";
+import type { UsageLoginAccounts, UsageLoginCode, UsageLoginFollowed, UsageLoginPrompt, UsageLoginProvider, UsageLoginRequest, UsageLoginStarted } from "../../shared/usage-login.ts";
 
 export function fetchUsageLoginProviders(signal: AbortSignal): Promise<{ providers: readonly UsageLoginProvider[] }> {
   return getJson("/api/usage/login", { signal });
@@ -101,9 +101,39 @@ export function fetchUsageLoginAccounts(provider: string, signal: AbortSignal): 
   return getJson(`/api/usage/login?provider=${encodeURIComponent(provider)}`, { signal });
 }
 
-export function startUsageLogin(request: UsageLoginRequest): Promise<UsageLoginStarted> {
+/** Starts a Claude Code or Codex sign-in the browser follows: it runs in the server's own PTY, reached by its id. */
+export function followUsageLogin(request: Extract<UsageLoginRequest, { provider: "claude" | "codex" }>, signal: AbortSignal): Promise<UsageLoginFollowed> {
+  return getJson<UsageLoginFollowed>("/api/usage/login", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...request, follow: true }),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
+  });
+}
+
+/** What a followed sign-in asks of its user now: the page to open, the code to enter, a code box. */
+export function fetchUsageLoginPrompt(login: string, signal: AbortSignal): Promise<UsageLoginPrompt> {
+  return getJson(`/api/usage/login/prompt?login=${encodeURIComponent(login)}`, { signal, cache: "no-store" });
+}
+
+/** Types the code a sign-in page showed into that sign-in's CLI, then Enter. */
+export async function sendUsageLoginCode(request: UsageLoginCode): Promise<void> {
+  await sendJson("/api/usage/login/code", "POST", request);
+}
+
+/**
+ * Stops a followed sign-in's CLI; settles once the server has stopped it and freed its home. Sent as the page
+ * may be leaving, so it outlives the page. A handoff must see a failure rather than start beside it.
+ */
+export async function cancelUsageLogin(login: string): Promise<void> {
+  const url = "/api/usage/login/cancel";
+  const response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", "x-herdr-machine": "1" }, body: JSON.stringify({ login }), keepalive: true });
+  if (!response.ok) throw await errorFrom(url, response);
+}
+
+export function startUsageLogin(request: UsageLoginRequest, signal?: AbortSignal): Promise<UsageLoginStarted> {
+  // a request the asker gave up on opens no tab (the server checks before it does)
+  const timeout = AbortSignal.timeout(30_000);
   return getJson<UsageLoginStarted>("/api/usage/login", {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal: AbortSignal.timeout(30_000),
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(request), signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
   });
 }
 
