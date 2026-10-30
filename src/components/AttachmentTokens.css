@@ -1,0 +1,54 @@
+/* Downstream (DOWNSTREAM.md): the attachment marks drawn as pills under the message box's text
+   (AttachmentTokens.tsx). The layer takes the textarea's own metrics from it at run time; here it is
+   only placed under it, clipped as it is, its characters left for the textarea to draw. */
+.composer-token-layer {
+  position: absolute;
+  z-index: -1;
+  margin: 0;
+  overflow: hidden;
+  border-color: transparent;
+  border-style: solid;
+  color: transparent;
+  pointer-events: none;
+}
+
+.composer-token {
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+  box-shadow: 0 0 0 var(--hairline) var(--accent);
+  color: transparent;
+}
+
+.composer-token.is-hot {
+  box-shadow: 0 0 0 calc(var(--hairline) * 2) var(--accent);
+}
+
+/* a tile names the mark it stands for, and its mark lights up while it is pointed at */
+.composer-attachment.is-hot {
+  border-color: var(--accent);
+}
+
+/* a sent mark in the user's own message reads as the same pill, and opens its file */
+.chat-turn-user .chat-bubble-body .markdown-file {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--accent-tint);
+  box-shadow: 0 0 0 var(--hairline) var(--accent);
+  text-decoration: none;
+}
+
+.chat-user-image-label {
+  position: absolute;
+  inset: auto var(--space-1) var(--space-1) auto;
+  padding: var(--hairline) var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-panel);
+  color: var(--text-strong);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-tight);
+  pointer-events: none;
+}
+
+.chat-user-images .chat-user-image {
+  position: relative;
+}

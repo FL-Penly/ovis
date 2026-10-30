@@ -30,6 +30,7 @@ import { turnSkills } from "../lib/skillActivity.ts";
 import { ApiError, pinPaneConversation, unpinPaneConversation } from "../lib/api.ts";
 import { copyText } from "../lib/clipboard.ts";
 import { attachmentFileName, mentionFileName, type GalleryImage } from "../lib/imageViewer.ts";
+import { tokenLabels, tokenLinks } from "../lib/attachmentTokens.ts"; // downstream: DOWNSTREAM.md
 import { useMachineApi } from "../lib/machineContext.tsx";
 import { toTranscriptMessages, type TranscriptMessage } from "../lib/transcript.ts";
 import { isLiveWorkTurn, isWaitingWorkTurn, formatWorkDuration, runNames, splitTurn, turnSegments, type WorkSegment, todoGroups, visibleWorkParts, workFailed, workStartsOpen, workSummary, type TodoAttempt, type TodoGroup, type ToolPart as ToolPartType } from "../lib/workBlocks.ts";
@@ -460,6 +461,7 @@ function ImageThumb({ image, onOpen }: { image: GalleryImage; onOpen: () => void
   // clicked button on its own)
   return <button type="button" className="chat-user-image" title={t("Open image")} onClick={(event) => { event.currentTarget.focus({ preventScroll: true }); onOpen(); }}>
     <ReservedImage src={image.src} alt={image.name} slot />
+    {image.label !== undefined && <span className="chat-user-image-label">{image.label}</span>}{/* downstream */}
   </button>;
 }
 
@@ -807,6 +809,7 @@ function UserImages({ paneId, parts, text }: { paneId: string; parts: Conversati
   const machineId = useMachineId();
   const pasted = parts.filter((part): part is Extract<ConversationPart, { kind: "image" }> => part.kind === "image");
   const mentioned = [...new Set([...text.matchAll(IMAGE_MENTION)].map((match) => match[1]!))];
+  const labels = tokenLabels(text); // downstream: the marks the message named its files by
   if (pasted.length === 0 && mentioned.length === 0) return null;
   // one gallery for the message: its pasted pictures first, then the files it mentioned
   const images: GalleryImage[] = [
@@ -815,7 +818,7 @@ function UserImages({ paneId, parts, text }: { paneId: string; parts: Conversati
       name: t("Attached image"),
       file: attachmentFileName(part.media_type, index),
     })),
-    ...mentioned.map((path): GalleryImage => ({ src: fileUrl(path, paneId, machineId), name: path, file: mentionFileName(path) })),
+    ...mentioned.map((path): GalleryImage => ({ src: fileUrl(path, paneId, machineId), name: path, file: mentionFileName(path), label: labels.get(path) })),
   ];
   return <ImageGallery images={images} className="chat-user-images" />;
 }
@@ -1109,7 +1112,7 @@ export const Turn = memo(function Turn({ paneId, turn, rowKey, live, waiting, sh
       <UserImages paneId={paneId} parts={turn.parts} text={text} />
       {/* one row: with a mouse the time and copy sit beside the bubble, on touch under it */}
       <div className="chat-user-row">
-        {text.length > 0 && <UserMessage text={text} skills={userSkills} />}
+        {text.length > 0 && <UserMessage text={tokenLinks(text)} skills={userSkills} />}{/* downstream: sent attachment marks as their files' pills */}
         <div className="chat-turn-meta">{time}{text.length > 0 && <CopyButton text={text} label={t("Copy message")} onResult={copied} />}
           {text.length > 0 && onRewindInTerminal !== null && (
             <button type="button" className="icon-button chat-copy chat-rewind" aria-label={t("Rewind in terminal")} title={t("Rewind in terminal")} onClick={onRewindInTerminal}><Undo2 aria-hidden="true" /></button>

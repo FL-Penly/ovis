@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "reac
 import { Clock } from "lucide-react";
 
 import { useT } from "../lib/i18n.ts";
+import { tokenText } from "../lib/attachmentTokens.ts"; // downstream: DOWNSTREAM.md
 import { currentWaitingSends, forgetMachineWaitingSends, subscribeWaitingSends, WAITING_HINT_MS, waitingKey, type WaitingSend } from "../lib/sentWaiting.ts";
 
 /**
@@ -39,10 +40,11 @@ export function SentWaitingList({ sends }: { sends: readonly WaitingSend[] }) {
   // no live region of its own: the chat footer has one, and the user's own words need no announcing
   return <div className="chat-sent-waiting-list">
     {sends.map((send) => {
-      const chars = Array.from(send.text);
+      const shown = tokenText(send.text); // downstream: attachment marks without their paths
+      const chars = Array.from(shown);
       return <div key={send.id} className="chat-turn chat-turn-user chat-turn-waiting">
         <div className="chat-user-row">
-          <div className="chat-bubble"><div className="chat-bubble-body">{chars.length > 160 ? `${chars.slice(0, 160).join("")}…` : send.text}</div></div>
+          <div className="chat-bubble"><div className="chat-bubble-body">{chars.length > 160 ? `${chars.slice(0, 160).join("")}…` : shown}</div></div>
           {now - send.at >= WAITING_HINT_MS && <div className="chat-turn-meta">
             <span className="chat-sent-late" role="img" aria-label={late} title={late}><Clock aria-hidden="true" /></span>
           </div>}

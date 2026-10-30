@@ -71,6 +71,8 @@ import { useT } from "../lib/i18n.ts";
 import { offersRetry, userFailure, type UserFailure } from "../lib/userError.ts";
 import { AttachmentTooLargeError } from "../lib/api.ts";
 import { modalOpen } from "../lib/focus.ts";
+import { TokenLayer, tokenName, tokenNoRoomNote, tokenPreview, tokenTooLongNote, useComposerTokens } from "./AttachmentTokens.tsx"; // downstream: DOWNSTREAM.md
+import { insertTokens, repairTokenEdit, withoutToken } from "../lib/attachmentTokens.ts"; // downstream
 
 export interface ComposerProps {
   connected: boolean;
@@ -159,6 +161,8 @@ type Attachment = {
   missing?: number;
   /** what the pick this file came in with left out, repeated beside an upload error of the batch */
   leftOut: string | null;
+  /** downstream: the mark that stands for the file in the text (lib/attachmentTokens.ts) */
+  token?: string;
 };
 
 /** an upload that failed: its tile, and the failure's parts for the note over the box */
@@ -348,6 +352,10 @@ export function Composer({
   /** /resume retains the session picker instead of being sent to the terminal. */
   const terminalTyped = useMemo(() => typedTerminalCommand(commands, text), [commands, text]);
   const uploading = attachments.some((attachment) => attachment.state === "uploading");
+  const tokens = useComposerTokens(draftKey); // downstream: attachment marks
+  /** downstream: a mark whose file has no path (a failed upload) holds the message until it is tried again or removed */
+  const unplaced = tokens.unplaced(text);
+  const [hotToken, setHotToken] = useState<string | null>(null); // downstream
   /** a finished upload whose path waits for the message to be shortened: Send waits with it */
   const roomless = attachments.find((attachment) => attachment.state === "no-room");
   const agentLabel = agentDisplayLabel(agent);
@@ -402,6 +410,33 @@ export function Composer({
   }, [paneId, trigger?.kind, trigger?.query]);
 
   const searchKey = trigger === null ? null : `${trigger.kind}:${trigger.prefix ?? ""}:${trigger.query}`;
+
+  // downstream: a draft's attachment marks come back with their tiles; a mark whose upload was left behind goes
+  useEffect(() => {
+    const { attached, text: rest } = tokens.restore(textRef.current);
+    if (rest !== textRef.current) { setText(rest); textRef.current = rest; caretRef.current = Math.min(caretRef.current, rest.length); }
+    if (attached.length === 0) return;
+    setAttachments(attached.map((entry): Attachment => ({
+      id: ++attachmentSequence,
+      file: new File([], entry.name),
+      previewUrl: tokenPreview(entry, paneId, machineId),
+      path: entry.path,
+      state: "ready",
+      leftOut: null,
+      token: entry.token,
+    })));
+  }, []);
+  // downstream: a mark deleted from the text takes its file's tile
+  useEffect(() => {
+    const gone = tokens.prune(text);
+    if (gone.length === 0) return;
+    for (const attachment of attachmentsRef.current) {
+      if (attachment.token === undefined || !gone.includes(attachment.token)) continue;
+      removedAttachments.current.add(attachment.id);
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
+    setAttachments((current) => current.filter((attachment) => attachment.token === undefined || !gone.includes(attachment.token)));
+  }, [text, tokens.prune]);
 
   useEffect(() => {
     mounted.current = true;
@@ -732,6 +767,13 @@ export function Composer({
         .then(
           (path) => {
             if (!mounted.current || removedAttachments.current.has(attachment.id)) return;
+            // downstream: the file's mark is in the text already, where it was picked; the path waits for the send
+            if (attachment.token !== undefined) {
+              tokens.uploaded(attachment.token, path);
+              setAttachments((current) => current.map((item) => (item.id === attachment.id ? { ...item, path, state: "ready" } : item)));
+              announce(t("{name} attached", { name: attachment.file.name }));
+              return;
+            }
             waitingMentions.current.push({ id: attachment.id, path, name: attachment.file.name });
             placeWaitingMentions();
           },
@@ -755,7 +797,7 @@ export function Composer({
           pumpUploads();
         });
     }
-  }, [onUploadImage, placeWaitingMentions]);
+  }, [announce, onUploadImage, placeWaitingMentions, t, tokens.uploaded]);
 
   const uploadImages = useCallback(
     (incoming: readonly File[]) => {
@@ -779,12 +821,27 @@ export function Composer({
           leftOut,
         };
       });
+      // downstream: each file's mark goes in at the caret now, where it was pasted, dropped or picked
+      if (tokens.on) {
+        const marks = tokens.reserve(added.map((attachment) => ({ name: attachment.file.name, image: attachment.previewUrl !== "" })), textRef.current);
+        const element = textareaRef.current;
+        const live = element !== null && element.value === textRef.current;
+        const placed = insertTokens(textRef.current, live ? element.selectionStart : caretRef.current, live ? element.selectionEnd : caretRef.current, marks);
+        if (placed.text.length > MAX_COMPOSER_CHARS) {
+          tokens.prune(textRef.current);
+          for (const attachment of added) URL.revokeObjectURL(attachment.previewUrl);
+          setNote(tokenNoRoomNote(t));
+          return;
+        }
+        added.forEach((attachment, index) => { attachment.token = marks[index]; });
+        setTextAndCaret(placed.text, placed.caret);
+      }
       setAttachments((current) => [...current, ...added]);
       setNote(leftOut);
       uploadQueue.current.push(...added);
       pumpUploads();
     },
-    [pumpUploads, t],
+    [pumpUploads, setTextAndCaret, t, tokens.on, tokens.prune, tokens.reserve],
   );
 
   /** Try again on a failed upload: the tile uploads once more, its note gone */
@@ -796,6 +853,12 @@ export function Composer({
   }, [pumpUploads]);
 
   const removeAttachment = useCallback((attachment: Attachment) => {
+    // downstream: the file's mark leaves the text with it
+    if (attachment.token !== undefined) {
+      tokens.remove(attachment.token);
+      const next = withoutToken(textRef.current, attachment.token);
+      if (next !== null) { setText(next); textRef.current = next; caretRef.current = Math.min(caretRef.current, next.length); }
+    }
     removedAttachments.current.add(attachment.id);
     placedMentions.current.delete(attachment.id);
     URL.revokeObjectURL(attachment.previewUrl);
@@ -815,15 +878,18 @@ export function Composer({
       // would wait for the next edit: try them now
       placeWaitingMentions();
     }
-  }, [placeWaitingMentions]);
+  }, [placeWaitingMentions, setText, tokens.remove]);
 
   /** `clearDraft`: the terminal draft a DraftRefusal named, which the user asked to clear and send over;
    * `sendAnyway`: the user saw the box a DraftRefusal showed and sends over it. */
   const send = useCallback((clearDraft?: string, sendAnyway = false): boolean => {
     if (composingRef.current) return false;
-    if (role === "observe" || !connected || uploading || roomless || sending || (text.trim().length === 0 && carried.length === 0)) return false;
+    if (role === "observe" || !connected || uploading || roomless || unplaced || sending || (text.trim().length === 0 && carried.length === 0)) return false;
     if (terminalTyped?.name === "resume" && onOpenHistory) { setMenuDismissed(true); onOpenHistory(); return true; }
-    const message = carried.length > 0 ? messageWithComments(carried, text) : text;
+    // downstream: each attachment mark is sent with its file's path beside it
+    const expanded = tokens.expand(text);
+    if (expanded.length > MAX_COMPOSER_CHARS) { setNote(tokenTooLongNote(t)); return false; }
+    const message = carried.length > 0 ? messageWithComments(carried, expanded) : expanded;
     if (message.length > MAX_COMPOSER_CHARS) { setNote(t("Too long with the comments: remove a comment or shorten the message.")); return false; }
     const sentComments = carried;
     const sent = text;
@@ -865,7 +931,7 @@ export function Composer({
       if (mounted.current) setNote(t("Not confirmed. Check the terminal before sending again."));
     }
     return true;
-  }, [attachments, carried, commentsKey, connected, dictation.forget, draftKey, onOpenHistory, onSend, role, roomless, sending, t, terminalTyped, text, uploading]);
+  }, [attachments, carried, commentsKey, connected, dictation.forget, draftKey, onOpenHistory, onSend, role, roomless, sending, t, terminalTyped, text, tokens.expand, unplaced, uploading]);
   const sendRef = useRef(send);
   sendRef.current = send;
   const connectedRef = useRef(connected);
@@ -1161,7 +1227,7 @@ export function Composer({
             ? offersRetry(note.failure) && <button type="button" className="composer-note-action" disabled={!connected} onClick={() => retryUpload(note.attachment)}>{t("Try again")}</button>
             : <div className="composer-note-actions">
               {"draft" in note && <button type="button" className="composer-note-action" disabled={!connected || sending} onClick={() => sendDraft(note.draft)}>{t("Send it")}</button>}
-              <button type="button" className="composer-note-action" disabled={!connected || uploading || roomless !== undefined || sending || (text.trim().length === 0 && carried.length === 0)}
+              <button type="button" className="composer-note-action" disabled={!connected || uploading || roomless !== undefined || unplaced || sending || (text.trim().length === 0 && carried.length === 0)}
                 onClick={() => "draft" in note ? send(note.draft) : send(undefined, true)}>{"draft" in note ? t("Clear it and send") : t("Send anyway")}</button>
             </div>)}
         </div>
@@ -1299,7 +1365,8 @@ export function Composer({
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label={t("Attached files")}>
             {attachments.map((attachment) => (
-              <div className={`composer-attachment is-${attachment.state}`} key={attachment.id}>
+              <div className={`composer-attachment is-${attachment.state}${attachment.token !== undefined && attachment.token === hotToken ? " is-hot" : ""}`} key={attachment.id}
+                onMouseEnter={() => setHotToken(attachment.token ?? null)} onMouseLeave={() => setHotToken(null)}>
                 {attachment.previewUrl ? <img src={attachment.previewUrl} alt={attachment.file.name} />
                   : <span className="composer-attachment-file" title={attachment.file.name}><FileText aria-hidden="true" /><span>{attachment.file.name}</span></span>}
                 <span className="composer-attachment-state">
@@ -1307,7 +1374,7 @@ export function Composer({
                       already says what happened, once */}
                   {attachment.state === "no-room" || attachment.state === "error"
                     ? <><TriangleAlert aria-hidden="true" /><span className="visually-hidden">{t(attachment.state === "error" ? "Failed" : "No room")}</span></>
-                    : t(attachment.state === "uploading" ? "Uploading" : "Attached")}
+                    : attachment.state === "ready" && attachment.token !== undefined ? tokenName(attachment.token) : t(attachment.state === "uploading" ? "Uploading" : "Attached")}
                 </span>
                 <button type="button" aria-label={t("Remove {file}", { file: attachment.file.name })} onClick={() => removeAttachment(attachment)}>
                   <X aria-hidden="true" />
@@ -1317,6 +1384,7 @@ export function Composer({
           </div>
         )}
 
+        <TokenLayer textarea={textareaRef} text={text} tokens={tokens.tokens} hot={hotToken} />{/* downstream */}
         <textarea
           ref={textareaRef}
         onCompositionStart={() => { composingRef.current = true; }}
@@ -1358,6 +1426,9 @@ export function Composer({
           }}
           onKeyUp={(event) => setCaret(event.currentTarget.selectionStart)}
           onChange={(event) => {
+            // downstream: an edit that cut into an attachment mark takes the whole mark
+            const repaired = composingRef.current ? null : repairTokenEdit(textRef.current, event.target.value, tokens.tokens);
+            if (repaired !== null) { setTextAndCaret(repaired.text, repaired.caret); return; }
             setText(event.target.value);
             setCaret(event.target.selectionStart);
             setMenuDismissed(false);
@@ -1483,7 +1554,7 @@ export function Composer({
               aria-label={t("Send message")}
               title={sending ? t("Sending…") : t("Send message")}
               aria-busy={sending || undefined}
-              disabled={!connected || uploading || roomless !== undefined || sending || (text.trim().length === 0 && carried.length === 0)}
+              disabled={!connected || uploading || roomless !== undefined || unplaced || sending || (text.trim().length === 0 && carried.length === 0)}
               // focus stays in the text box: leaving it closes the soft keyboard and moves the button
               // out from under the tap before the click lands
               onPointerDown={(event) => event.preventDefault()}
