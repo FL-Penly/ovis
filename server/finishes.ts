@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { AgentStatus, HerdrPane, SessionSnapshot } from "../shared/protocol.ts";
@@ -15,6 +16,15 @@ export function finishHerdrIdentity(path = herdrSocketPath(), platform = process
     const stat = statSync(path, { bigint: true });
     return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
   } catch { return null; }
+}
+
+/**
+ * A snapshot's `herdr_lifetime`: a digest of the identity above, so a browser can tell a herdr that
+ * replaced the last one (and gives its pane IDs out again) without learning the socket's inode or a
+ * Windows pid. Unlike the finish epoch it is the same for every server that reads the same herdr.
+ */
+export function herdrLifetime(identity: string): string {
+  return createHash("sha256").update(`herdr-lifetime:${identity}`).digest("hex").slice(0, 32);
 }
 
 /**
@@ -47,6 +57,9 @@ export class Finishes {
       this.saved = this.serialize();
     } catch { /* none yet, or unreadable: a new epoch, as before */ }
   }
+
+  /** herdr's identity read now; null proves nothing */
+  herdrIdentity(): string | null { return this.herdr(); }
 
   get epoch(): string {
     const identity = this.herdr();

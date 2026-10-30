@@ -55,7 +55,7 @@ function modeWord(t: Translate, mode: AgentMode | null): string {
 /** the mode Shift+Tab steps through: Codex's YOLO is its approval mode, so it reads as the default collaboration mode */
 const steppedMode = (agent: string, mode: AgentMode | null): AgentMode | null => agent === "codex" && mode === "YOLO mode" ? null : mode;
 
-const wait = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 type Shown = { mode: AgentMode | null; inputBox: boolean } | null;
 
@@ -96,8 +96,8 @@ export function ModeChip({ paneId, agent, agentStatus, disabled }: { paneId: str
   useEffect(() => {
     if (!supported) { setShown(null); return; }
     void refresh();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, READ_EVERY_MS);
-    return () => window.clearInterval(timer);
+    const timer = setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, READ_EVERY_MS);
+    return () => clearInterval(timer);
   }, [supported, refresh, agentStatus]);
 
   const pressShiftTab = useCallback(async (): Promise<boolean> => {
@@ -125,7 +125,7 @@ export function ModeChip({ paneId, agent, agentStatus, disabled }: { paneId: str
     const now = await read().catch(() => null);
     if (now === null || !now.inputBox) { setNote(t("Close what is open in the terminal first")); return; }
     if (!await pressShiftTab()) { setNote(t("Couldn't switch the mode")); return; }
-    for (const delay of READ_AFTER_KEY_MS) window.setTimeout(() => void refresh(), delay);
+    for (const delay of READ_AFTER_KEY_MS) setTimeout(() => void refresh(), delay);
   }, [disabled, stepping, read, pressShiftTab, refresh, t]);
 
   /** Shift+Tab until the footer shows `target`; back at the mode it started from, the session has no such mode. */
@@ -163,8 +163,8 @@ export function ModeChip({ paneId, agent, agentStatus, disabled }: { paneId: str
 
   useEffect(() => {
     if (note === null) return;
-    const timer = window.setTimeout(() => setNote(null), NOTE_MS);
-    return () => window.clearTimeout(timer);
+    const timer = setTimeout(() => setNote(null), NOTE_MS);
+    return () => clearTimeout(timer);
   }, [note]);
 
   // Shift+Tab in this pane's message box steps once, unless its own / menu is open and takes the key

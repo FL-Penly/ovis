@@ -14,10 +14,12 @@ import type { PaneInfo, SessionSnapshot } from "../../shared/protocol.ts";
 import type { AppActions } from "./actions.ts";
 import { rosterPanes } from "./dagPane.ts";
 import { lastViewedPane, rememberViewedPane } from "./lastViewedPane.ts";
-import { isMacPlatform, keepsKeyForText } from "./shortcuts.ts";
+import { isMacPlatform, keepsKeyForText, type ShortcutId } from "./shortcuts.ts";
 import { openQuickTab } from "../components/QuickTabPicker.tsx";
 
 export type NavMove = "workspace-previous" | "workspace-next" | "tab-previous" | "tab-next" | "terminal-tab" | "close-tab";
+/** upstream's shortcut each move stands for: a step gives a field its arrow only while the caret can still go that way */
+const MOVE_SHORTCUT: Record<NavMove, ShortcutId> = { "workspace-previous": "previous-workspace", "workspace-next": "next-workspace", "tab-previous": "previous-tab", "tab-next": "next-tab", "terminal-tab": "new-tab", "close-tab": "new-tab" };
 
 export function navMove(event: Pick<KeyboardEvent, "key" | "code" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey" | "isComposing">, mac: boolean): NavMove | null {
   if (event.isComposing || event.shiftKey) return null;
@@ -109,7 +111,7 @@ export function useNavShortcuts(actions: AppActions, snapshot: RefObject<Session
     const mac = isMacPlatform();
     const onKeyDown = (event: KeyboardEvent): void => {
       const move = navMove(event, mac);
-      if (move === null || keepsKeyForText(event)) return;
+      if (move === null || keepsKeyForText(event, MOVE_SHORTCUT[move])) return;
       const roster = snapshot.current;
       const step = move === "terminal-tab" || move === "close-tab" || !roster ? null
         : navTarget(roster, machineId, selectedPaneId, sidebarWorkspaces(roster, selectedPaneId), move, sidebarRows(roster, machineId, selectedPaneId));

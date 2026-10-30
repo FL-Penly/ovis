@@ -65,6 +65,8 @@ export default defineConfig({
     { find: /^common\//, replacement: `${xtermSource}/common/` },
     { find: /^ovis-local\/client$/, replacement: localExtensions }, // downstream
     { find: /^ovis-src\//, replacement: `${fileURLToPath(new URL("./src", import.meta.url))}/` }, // downstream: what the extension imports of Ovis
+    { find: /^vs\/nls$/, replacement: `${xtermSource}/vs/patches/nls.js` },
+    { find: /^vs\//, replacement: `${xtermSource}/vs/` },
     { find: "@shared", replacement: new URL("./shared", import.meta.url).pathname },
   ],
   // downstream: the extension lives outside this folder, so its React is this build's own

@@ -2,7 +2,7 @@
  * Japanese for the keys only the chat files use:
  * components/ChatView.tsx, components/Markdown.tsx, components/MermaidLightbox.tsx,
  * components/ChatMinimap.tsx, components/ImageLightbox.tsx, components/BackgroundTasks.tsx,
- * components/BackgroundAgentDetail.tsx, components/MarkdownLinkMenu.tsx,
+ * components/BackgroundAgentDetail.tsx, components/Artifacts.tsx, components/MarkdownLinkMenu.tsx,
  * lib/workBlocks.ts (with CATEGORY_LABEL), lib/toolVerbs.ts (with VERB_LABEL), lib/outcomeChip.ts,
  * lib/chatTimestamp.ts, lib/chatReadDeadline.ts.
  * Register and fixed terms follow ../i18n.ja.ts; a key another feature also uses goes there.
@@ -27,6 +27,7 @@ export const CHAT_JA: Record<string, string> = {
   "Show all {n} lines": "{n} 行すべて表示",
   "Empty task": "空のタスク",
   "Couldn't copy. Select the text and copy it manually.": "コピーできませんでした。テキストを選択して手動でコピーしてください。",
+  "Input": "入力",
   "Output": "出力",
   "Arguments omitted (too large)": "引数が大きすぎるため省略しました",
   "thinking": "思考",
@@ -109,7 +110,6 @@ export const CHAT_JA: Record<string, string> = {
   "Original delivery": "元のメッセージ",
   "This is the first part of a longer result": "長い結果の最初の部分です",
   "Accepted": "受け付け済み",
-  "Waiting for your answer": "回答待ち",
   "Done · {evidence}": "完了 · {evidence}",
   "transcript": "会話ログ",
   "card answered": "カードで回答",
@@ -146,10 +146,14 @@ export const CHAT_JA: Record<string, string> = {
   "{n} tool calls": "ツール呼び出し {n} 回",
   "{n} tokens": "{n} トークン",
   "Background tasks": "バックグラウンドタスク",
+  "Artifacts": "アーティファクト",
+  "{n} artifact": "アーティファクト {n} 件",
+  "{n} artifacts": "アーティファクト {n} 件",
   "Couldn't load the background tasks": "バックグラウンドタスクを読み込めませんでした",
   "No background tasks to show yet": "表示できるバックグラウンドタスクはまだありません",
   "Running": "実行中",
   "{n} recently ended": "最近終了 {n} 件",
+  "{n} more running": "ほか {n} 件実行中",
   "Nothing running right now": "現在実行中のものはありません",
   "{done} of {total} done": "{total} 件中 {done} 件完了",
   "{n} running": "{n} 件実行中",
@@ -181,7 +185,6 @@ export const CHAT_JA: Record<string, string> = {
   "Work so far": "これまでの作業",
   "blocked": "ブロック中",
   "paused": "一時停止",
-  "Goal": "目標",
   "complete": "完了",
   "out of budget": "予算切れ",
   "Used so far: {spent}": "これまでの使用量: {spent}",
@@ -205,4 +208,5 @@ export const CHAT_JA: Record<string, string> = {
   "Show full message": "メッセージ全体を表示",
   "Open link": "リンクを開く",
   "Share link": "リンクを共有",
+  "Sent · waiting for the agent's next turn": "送信済み · エージェントの次のターンを待っています",
 };

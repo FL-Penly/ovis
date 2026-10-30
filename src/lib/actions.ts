@@ -19,6 +19,10 @@ export interface AppActions {
   selectPane: (paneId: string) => void;
   /** the previous/next pane in sidebar order; wraps around */
   selectAdjacentPane: (direction: -1 | 1) => void;
+  /** the previous/next tab of the selected pane's workspace in tab strip order; wraps around */
+  selectAdjacentTab: (direction: -1 | 1) => void;
+  /** the previous/next workspace of the selected PC in sidebar order (pins, worktree groups); wraps around */
+  selectAdjacentWorkspace: (direction: -1 | 1) => void;
   setView: (view: PaneView) => void;
   toggleView: () => void;
   /** Focus the selected pane's mounted input without sending any text or keys. */
@@ -63,6 +67,8 @@ export interface AppActions {
   /** the Add PC dialog, from Settings → Remote PCs and the palette; Settings closes first */
   openAddPc: () => void;
   toggleSidebar: () => void;
+  /** the sidebar's Filter field, focused, with the drawer or the sidebar opened first: drawn even where Settings → Appearance leaves it out */
+  openSidebarFilter: () => void;
   /** flips dark/light (a `system` setting becomes the opposite of the resolved theme) */
   toggleTheme: () => void;
   /** Sign out of token/device authentication; null for automatic local/Tailscale access. */

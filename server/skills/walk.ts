@@ -3,6 +3,7 @@ import type { Dirent } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { parse } from "jsonc-parser";
 import { SkillIgnore } from "../skill-ignore.ts";
+import { userHome } from "../user-home.ts";
 import type { SlashCommand } from "../../shared/protocol.ts";
 
 export interface WalkRules {
@@ -306,6 +307,9 @@ export function customCommands(root: string, source: SlashCommand["source"], bud
 export function* customCommandSteps(root: string, source: SlashCommand["source"], budget = createWalkBudget(), include?: (fields: Readonly<Record<string, unknown>>) => boolean, sortByName = false): Generator<SlashCommand | null> {
   if (budget.folders <= 0 || budget.entries <= 0 || budget.reads <= 0) return;
   // Guard only the current ancestry: sibling links can expose different command namespaces.
+  // A linked folder is followed wherever it points, outside `root` too, on purpose: Command Code's own
+  // loader does the same (1.84.0 loadCommandsFromDirectory stats each entry and has no root check), so
+  // it runs those commands, and its menu lists what it runs.
   const ancestors = new Set<string>();
   function* visit(directory: string): Generator<SlashCommand | null> {
     // every visit counts, a link back to an ancestor too: each one is a lookup on the server's thread
@@ -378,13 +382,19 @@ export function piTemplates(root: string, source: SlashCommand["source"]): Slash
 }
 
 
-/** The nearest repository boundary wins; the home directory is never a project ancestor. */
-export function ancestorsToRepoRoot(cwd: string): string[] {
+/**
+ * The nearest repository boundary wins; the home directory is never a project ancestor. Windows
+ * names one folder in any letter case, so there the boundary is compared case-insensitively.
+ */
+export function ancestorsToRepoRoot(cwd: string, rawHome = userHome(), platform: NodeJS.Platform = process.platform): string[] {
   const start = resolve(cwd);
-  const home = resolve(process.env.HOME ?? "");
-  if (start === home || home.startsWith(start.endsWith(sep) ? start : start + sep)) return [];
+  const home = rawHome ? resolve(rawHome) : null;
+  const norm = (path: string): string => platform === "win32" ? path.toLowerCase() : path;
+  const normStart = norm(start);
+  const normHome = home !== null ? norm(home) : null;
+  if (normHome !== null && (normStart === normHome || normHome.startsWith(normStart.endsWith(sep) ? normStart : normStart + sep))) return [];
   const result: string[] = [];
-  for (let directory = start; directory !== home && directory !== dirname(directory); directory = dirname(directory)) {
+  for (let directory = start; (normHome === null || norm(directory) !== normHome) && directory !== dirname(directory); directory = dirname(directory)) {
     result.push(directory);
     if (existsSync(join(directory, ".git"))) return result;
   }

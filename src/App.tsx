@@ -2,9 +2,8 @@ import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, us
 import { Bell, Ellipsis, FolderOpen, Link, Menu, MessageSquare, PanelLeft, Search, SquareTerminal, X } from "lucide-react";
 
 import type { HerdrPane } from "../shared/protocol.ts";
-import { authenticate, createTab, moveTabToWorkspace, pairDevice, shareSeen, signOut, splitPane, swapPaneWith, zoomPane } from "./lib/api.ts";
-import { deviceLabel } from "./lib/phone.ts";
-import { displayPaneTitle } from "./components/Sidebar.tsx";
+import { authenticate, createTab, moveTabToWorkspace, shareSeen, signOut, splitPane, swapPaneWith, zoomPane } from "./lib/api.ts";
+import { displayPaneTitle, storedWorktreeCollapsed } from "./components/Sidebar.tsx";
 import { PaneCanvas } from "./components/PaneCanvas.tsx";
 import { MachineSessionsProvider } from "./lib/machineSessionContext.tsx";
 import { PaneTerminal } from "./components/PaneTerminal.tsx";
@@ -14,7 +13,11 @@ import { worktreeRepoName } from "./lib/composerStrip.ts";
 import { AccessGate } from "./components/AccessGate.tsx";
 import { AgentMark } from "./components/AgentMark.tsx";
 import { NewSessionDialog } from "./components/NewSessionDialog.tsx";
+import { SetupGuide, SetupGuideResume } from "./components/SetupGuide.tsx";
+import { useSetupGuide } from "./lib/useSetupGuide.ts";
 import { SessionHistory } from "./components/SessionHistory.tsx";
+import { UnsentTextDialog } from "./components/UnsentText.tsx";
+import { useUnsentRecovery } from "./lib/useUnsentRecovery.ts";
 import { sessionHistoryAgent, sessionHistoryListAgent, sessionHistorySourcePane } from "./lib/sessionHistory.ts";
 import { usePreferencesSync } from "./lib/preferencesSync.ts";
 import { TabStrip } from "./components/TabStrip.tsx";
@@ -36,8 +39,12 @@ import { MachineDialog } from "./components/MachineDialog.tsx";
 import { RowMenu, type RowMenuItem } from "./components/RowMenu.tsx";
 import { headerCrumb, showsChat } from "./lib/headerCrumb.ts";
 import { paneStorageId } from "../shared/machines.ts";
+import { usePairedNotices } from "./lib/usePairedNotices.ts";
 import { takeAuthTokenFromUrl } from "./lib/authLink.ts";
 import { rosterPanes } from "./lib/dagPane.ts";
+import { adjacentTabPane, adjacentWorkspacePane, drawnWorkspaceRows, sidebarWorkspaceSteps, type ViewedPane } from "./lib/adjacentTarget.ts";
+import { lastViewedPane } from "./lib/lastViewedPane.ts";
+import { currentSidebarPins, pinnedWorkspaceIds } from "./lib/sidebarPins.ts";
 import { ReorderContext } from "./lib/machineContext.tsx";
 import { useSettings } from "./lib/settings.ts";
 import { useShownMachines } from "./lib/hiddenMachines.ts";
@@ -47,9 +54,12 @@ import { useAnnouncedText } from "./lib/useAnnouncedText.ts";
 import { paneContextPress } from "./lib/paneCanvas.ts";
 import type { AppActions, PaneView, PaneControls } from "./lib/actions.ts";
 import { removePushSubscription } from "./lib/push.ts";
+import { resetPushHealth } from "./lib/pushHealth.ts";
 import { useUpdates } from "./lib/updates.ts";
 import { UpdateNotice } from "./components/UpdateControls.tsx";
 import { LanExposureNotice } from "./components/LanExposureNotice.tsx";
+import { PushHealthNotice } from "./components/PushHealthNotice.tsx";
+import { DevicePairedNotice } from "./components/DevicePairedNotice.tsx";
 import { TelemetryNotice } from "./components/TelemetryControls.tsx";
 import { FilesDialog } from "./components/FilesDialog.tsx";
 import { folderQueryFor } from "./lib/paletteFolders.ts";
@@ -58,7 +68,7 @@ import { WebPanel } from "./components/WebPanel.tsx";
 import { WebPanelContext } from "./lib/webPanel.ts";
 import { RepoDiffViewer } from "./components/RepoDiffViewer.tsx";
 import { OpenFileContext } from "./lib/filePaths.ts";
-import { useAccessState, useLockedRef } from "./lib/useAccess.ts";
+import { useAccessState, useLockedRef, usePairFromAddress } from "./lib/useAccess.ts";
 import { useLocalHealth } from "./lib/useLocalHealth.ts";
 import { useMachinesRef, useRecentFolderMemory, useRefetchTimer, useRosterError, useRosterEvents, useRosterLoader, useRosterState } from "./lib/useMachineRoster.ts";
 import { useMachineDialog } from "./lib/useMachineDialog.ts";
@@ -85,7 +95,7 @@ import { PaneFollowContext } from "./lib/paneSubmitContext.ts";
 import { SplitDropPreview } from "./components/SplitDropPreview.tsx";
 import { CrashProbe, RegionCrash } from "./components/AppCrash.tsx";
 import { RenderBoundary } from "./components/RenderBoundary.tsx";
-import { storedView, usePaneLens, usePaneLensState, usePaneViewPicks } from "./lib/usePaneLens.ts";
+import { lensOwner, storedView, usePaneLens, usePaneLensState, usePaneViewPicks } from "./lib/usePaneLens.ts";
 import { useSplitLayout, useSplitRecheck, useSplitState } from "./lib/useSplitView.ts";
 import { linkSelects, useLinkLanding, useMachineGone, useNotificationTargets, useSelectedLayout, useSelectedMachine, useSelectedPane, useSelectionMark, useSelectionState, useSelectPane, useSelectTarget } from "./lib/useSelection.ts";
 import { useAddressBar } from "./lib/useAddressBar.ts";
@@ -178,17 +188,13 @@ export function App() {
   const { health, localFreshness, shownHealth, readLocalHealth } = useLocalHealth();
   const { error, setError } = useRosterError();
   const { layoutNotice, setLayoutNotice } = useLayoutNotice();
-  const { locked, setLocked, lockReason, pairCode, auth, canSignOut, pairedFromAddress, security, readBridgeHealth } = useAccessState();
-  useEffect(() => {
-    if (locked !== false || pairCode === "" || pairedFromAddress.current || auth?.via === "device") return;
-    pairedFromAddress.current = true;
-    pairDevice(pairCode, deviceLabel(navigator.userAgent, navigator.maxTouchPoints ?? 0)).then(() => loadHealth()).catch(() => { /* the gate, if any, reports it */ });
-  }, [locked, pairCode, auth]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { locked, setLocked, lockReason, pairCode, consumePairCode, pairingUnconfirmed, onPaired, auth, canSignOut, security, readBridgeHealth } = useAccessState();
+  const { pairedNotices, setPairedNotices, dismissPairedNotice } = usePairedNotices();
   const updates = useUpdates(locked === false);
   const { selectedPaneId, setSelectedPaneId, notificationViewTarget, setNotificationViewTarget, terminalPeek, setTerminalPeek, endPeek, pendingLink, linkLanded, setLinkLanded, rosterSeq, linkSince, selectionSince, rosterTick, setRosterTick, linkTick, setLinkTick } = useSelectionState({ initialLink });
   const { otherRecheck, otherRosterTick, setOtherRosterTick } = useSplitRecheck();
   const { rosterIn, pendingFile, selectionHint, setHeaderNote, note, autoSelected, setAutoSelected } = useLinkLanding({ initialLink, otherRecheck, setOtherRosterTick, pendingLink, rosterSeq, setRosterTick, linkLanded, t });
-  const { drawerOpen, setDrawerOpen, drawerOpenRef, wideScreen, sidebarCollapsed, setSidebarCollapsed, sidebarWidth, setSidebarWidth, filePanelAvailable, filePanelWidth, setFilePanelWidth } = useSidebarLayout({ initialLink });
+  const { drawerOpen, setDrawerOpen, drawerOpenRef, wideScreen, sidebarCollapsed, setSidebarCollapsed, sidebarWidth, setSidebarWidth, filePanelAvailable, filePanelWidth, setFilePanelWidth, sidebarFilterRequest, openSidebarFilter } = useSidebarLayout({ initialLink });
   const { selectionRef, movingPanes } = useSelectionMark({ selectedMachineId, selectedPaneId });
   const { lens, setLens, viewPicks, setViewPicks } = usePaneLensState();
   const { split, setSplit, soloSlot, endSplit, splitRef, splitShownRef, lastKeyAtRef, paneDragging, setPaneDragging, dropAt, dropAtRef, showDropTarget, clearDropPreview, paneAreaRef, tabDrag, draggedPaneRef, markSwap } = useSplitState();
@@ -225,15 +231,27 @@ export function App() {
     await readBridgeHealth();
     await readLocalHealth();
   }, []);
+  usePairFromAddress({ locked, pairCode, auth, consumePairCode, onPaired, loadHealth });
   const { snapshotRequests, reorderCoordinator, load, scheduleRefetch } = useRosterLoader({ rosterIn, setMachines, setMachineRosterLoaded, setError, setLocked, loadHealth, lockedRef, refetchTimer });
 
   const { dropIn, chime, onRoster, onPaneStatus, onPaneExited } = useAlertSignals({ settings, selectionRef, drawerOpenRef, splitRef, splitShownRef, machinesRef, alertsRef, alertsOnRef, pushOnRef, statusRef, turnStartRef, lastTurnRef, alertInAppRef, alertSoundRef });
 
-  useRosterEvents({ locked, receivePreferencesRef, snapshotRequests, onRoster, reorderCoordinator, setMachines, rosterIn, setMachineRosterLoaded, machinesRef, onPaneStatus, onPaneExited, followFocusRef, selectionRef, splitShownRef, splitRef, pendingLink, selectionHint, setSelectedPaneId, setNotificationViewTarget, setTerminalPeek, setAutoSelected, scheduleRefetch, preferencesResubscribedRef, preferencesDisconnectedRef, preferencesClosedRef, dropIn, chime, getTakeNotificationTargetRef: () => takeNotificationTargetRef });
+  useRosterEvents({ locked, receivePreferencesRef, snapshotRequests, onRoster, reorderCoordinator, setMachines, rosterIn, setMachineRosterLoaded, machinesRef, onPaneStatus, onPaneExited, followFocusRef, selectionRef, splitShownRef, splitRef, pendingLink, selectionHint, setSelectedPaneId, setNotificationViewTarget, setTerminalPeek, setAutoSelected, scheduleRefetch, preferencesResubscribedRef, preferencesDisconnectedRef, preferencesClosedRef, dropIn, chime, setPairedNotices, getTakeNotificationTargetRef: () => takeNotificationTargetRef });
 
   const handleServerMessage = useServerMessageHandler(setOutputStopped);
 
-  const { enableNotifications, disableNotifications } = useNotificationSwitch({ updateSettings, locked, notifications, setNotifications, alerts, alertsRef, alertsOn, setPushOn });
+  const { enableNotifications, disableNotifications, repairNotifications } = useNotificationSwitch({ updateSettings, locked, notifications, setNotifications, alerts, alertsRef, alertsOn, setPushOn });
+  // the first-run setup guide: by itself once on a fresh install, again from Settings → Setup guide
+  const localSnapshot = machines.find((machine) => machine.id === "local")?.snapshot ?? null;
+  const setupGuide = useSetupGuide({
+    enabled: locked === false,
+    workspaces: machineRosterLoaded && localSnapshot !== null ? localSnapshot.workspaces.length : null,
+    // undefined holds the decision until the access facts and this device's role are in: a failed read decides nothing
+    pairingGate: security.state === "loading" || security.state === "error" || auth === null ? undefined : security.state === "known" ? security.summary.pairing_gate : null,
+    watching: auth?.role === "watch",
+  });
+  const guideShown = setupGuide.guide !== null && !setupGuide.paused;
+
 
   const unlock = useCallback(() => {
     setLocked(false);
@@ -262,6 +280,7 @@ export function App() {
     // receiving pane titles
     await removePushSubscription().catch(() => undefined);
     setPushOn(false);
+    resetPushHealth();
     try {
       await signOut();
     } catch {
@@ -272,9 +291,9 @@ export function App() {
     }
   }, [loadHealth, t]);
 
-  const { selectedMachineRef, selectTarget, selectTargetRef, picks } = useSelectTarget({ selectedMachineId, setConnected, setConnectedBefore, setSelectedMachineId, setSelectedPaneId, setAutoSelected, setDrawerOpen, setOutputStopped, setNotificationViewTarget, setTerminalPeek, pendingLink, pendingFile, setLinkLanded, selectionHint, selectionSince, rosterSeq, snapshot, selectedMachine, selectedPaneId, setHeaderNote, linkTick, movingPanes });
+  const { selectedMachineRef, selectTarget, selectTargetRef, picks } = useSelectTarget({ selectedMachineId, setConnected, setConnectedBefore, setSelectedMachineId, setSelectedPaneId, setAutoSelected, setDrawerOpen, setOutputStopped, setNotificationViewTarget, setTerminalPeek, pendingLink, pendingFile, setLinkLanded, selectionHint, selectionSince, rosterSeq, snapshot, selectedMachine, selectedPaneId, setHeaderNote, linkTick, movingPanes, onPick: setupGuide.stepAside });
 
-  const { selectPane } = useSelectPane({ pendingLink, pendingFile, setLinkLanded, selectionHint, setSelectedPaneId, setNotificationViewTarget, setTerminalPeek, setAutoSelected, setDrawerOpen });
+  const { selectPane } = useSelectPane({ pendingLink, pendingFile, setLinkLanded, selectionHint, setSelectedPaneId, setNotificationViewTarget, setTerminalPeek, setAutoSelected, setDrawerOpen, onPick: () => { picks.current += 1; setupGuide.stepAside(); } });
 
   const layoutRefused = useLayoutRefused(setLayoutNotice, t);
   const moveRefused = useMoveRefused(setLayoutNotice, t);
@@ -315,7 +334,7 @@ export function App() {
   // a server that repaints the pane's screen instead (terminal_mirror) has a terminal lens too
   const terminalAttach = targetHerdr?.terminal_attach !== false || targetHerdr?.terminal_mirror === true;
 
-  const { lenses, view } = usePaneLens({ settings, selectedPaneId, selectedMachineId, selectedPane, selectedAgent, terminalAttach, notificationViewTarget, lens, setLens, viewPicks, terminalPeek, setTerminalPeek });
+  const { lenses, view } = usePaneLens({ settings, selectedPaneId, selectedMachineId, selectedPane, selectedAgent, terminalAttach, notificationViewTarget, setNotificationViewTarget, lens, setLens, viewPicks, terminalPeek, setTerminalPeek });
 
   const contentKey = paneContentKey(selectedMachine, selectedPane, view);
   const { dialogCover, contentReady } = usePaneCoverage({ contentKey });
@@ -329,6 +348,7 @@ export function App() {
   const activity = useSidebarActivityState(machines, selectedMachineId, presentedPaneId, paneInFront, shareSeen);
 
   const { pickView, setView } = usePaneViewPicks({ setViewPicks, setNotificationViewTarget, setTerminalPeek, setLens, setAutoSelected, selectedPaneId, selectedMachineId });
+  const { unsentFor, openUnsent, closeUnsent, recover } = useUnsentRecovery({ selectedMachineId, selectedPaneId, setView, pickView });
   // on a phone a peek is a step of its own: Back takes the chat back, as it closes a sheet. It stays
   // up under a sheet or Settings opened over it: their close, or a Back, comes back to the peek
   usePhoneSheetBack(() => endPeek(), terminalPeek !== null, true);
@@ -376,6 +396,29 @@ export function App() {
         const index = panes.findIndex((pane) => pane.pane_id === selectedPaneId);
         const next = panes[(index + direction + panes.length) % panes.length];
         if (next) selectPane(next.pane_id);
+      },
+      selectAdjacentTab: (direction) => {
+        const roster = snapshotRef.current;
+        const viewed: ViewedPane = (scope, id) => lastViewedPane(scope, selectedMachineId, id);
+        const next = roster ? adjacentTabPane(roster, selectedPaneId, direction, viewed) : null;
+        if (next) selectPane(next);
+      },
+      selectAdjacentWorkspace: (direction) => {
+        const roster = snapshotRef.current;
+        if (!roster) return;
+        // the rows the sidebar draws, as it draws them; a PC folded in it has none drawn, so its rows are
+        // worked out as they would be: a drag's order until herdr has it, pins first, saved folds left out
+        const unfolded = (): string[] => {
+          const byId = new Map(roster.workspaces.map((workspace) => [workspace.workspace_id, workspace]));
+          const ordered = reorderCoordinator.order(selectedMachineId, roster.workspaces.map((workspace) => workspace.workspace_id)).flatMap((id) => byId.get(id) ?? []);
+          const selectedWorkspaceId = roster.panes.find((pane) => pane.pane_id === selectedPaneId)?.workspace_id ?? null;
+          const folded = (repoKey: string) => repoKey !== "" && storedWorktreeCollapsed(selectedMachineId, [repoKey]).has(repoKey);
+          return sidebarWorkspaceSteps(ordered, pinnedWorkspaceIds(currentSidebarPins(), selectedMachineId), folded, selectedWorkspaceId);
+        };
+        const order = drawnWorkspaceRows(selectedMachineId) ?? unfolded();
+        const viewed: ViewedPane = (scope, id) => lastViewedPane(scope, selectedMachineId, id);
+        const next = adjacentWorkspacePane(roster, order, selectedPaneId, direction, viewed);
+        if (next) selectPane(next);
       },
       setView,
       // a peek shows the terminal over the chat: the shortcut takes the chat back, the lens stays Chat
@@ -457,7 +500,7 @@ export function App() {
         setSessionHistory({ machineId: found.machineId, workspaceId: found.workspace.workspace_id, agent, paneId, askingPaneId, selectedPaneId: selected });
       },
       openPalette,
-      agentStarted: (machineId, paneId) => lenses.startedAgent(paneStorageId(machineId, paneId), window.matchMedia?.("(pointer: coarse)").matches === true),
+      agentStarted: (machineId, paneId) => lenses.startedAgent(lensOwner(machineId, paneId), window.matchMedia?.("(pointer: coarse)").matches === true),
       openFind: () => {
         if (selectedPaneId === null) return;
         // a peek already shows the pane's terminal: find searches it there, and the peek (its return,
@@ -482,6 +525,7 @@ export function App() {
         if (window.matchMedia("(max-width: 768px)").matches) setDrawerOpen((open) => !open);
         else setSidebarCollapsed((collapsed) => !collapsed);
       },
+      openSidebarFilter,
       toggleTheme: () => updateSettings({ theme: resolvedTheme === "dark" ? "light" : "dark" }),
       lock: canSignOut ? lock : null,
       enableNotifications: bellVisible && bell.run === enableNotifications ? () => void enableNotifications() : null,
@@ -508,7 +552,7 @@ export function App() {
         void zoomPane(paneId, mode, machineId).then(() => void load()).catch((err) => layoutRefused("pane zoom failed", err));
       } : null,
     }),
-    [selectPane, selectedPaneId, selectedMachineId, tabStripMounted, setView, view, terminalPeek, endPeek, updateSettings, resolvedTheme, canSignOut, lock, bellVisible, bell.run, enableNotifications, load, layoutRefused, moveRefused, lenses],
+    [selectPane, selectedPaneId, selectedMachineId, reorderCoordinator, tabStripMounted, setView, view, terminalPeek, endPeek, updateSettings, resolvedTheme, canSignOut, lock, bellVisible, bell.run, enableNotifications, load, layoutRefused, moveRefused, lenses, openSidebarFilter],
   );
 
   useShortcuts(actions, locked === false);
@@ -588,7 +632,7 @@ export function App() {
       </div>
     );
   }
-  if (locked) return <AccessGate reason={lockReason} initialCode={pairCode} onUnlocked={unlock} />;
+  if (locked) return <AccessGate reason={lockReason} initialCode={pairCode} consumePairCode={consumePairCode} pairingUnconfirmed={pairingUnconfirmed} onPaired={onPaired} onUnlocked={unlock} />;
 
   return (
     <MachineSessionsProvider machineIds={machines.map((machine) => machine.id)}><MachineContext.Provider value={selectedMachineId}><div className={`app${sidebarCollapsed ? " sidebar-collapsed" : ""}`} style={sidebarWidth === null && filePanelWidth === null ? undefined : {
@@ -670,11 +714,12 @@ export function App() {
           </>
         )}
         <div className="header-meta">
-          <ConnectionChip
+          {/* the chip speaks for the pane's terminal: the setup guide stands in the pane's place and has none */}
+          {!guideShown && <ConnectionChip
             connected={connected}
             word={connWord}
             title={[connected ? null : connWord, shownHerdr ? t("herdr {version} · protocol {protocol}", { version: shownHerdr.version, protocol: shownHerdr.protocol }) : null].filter((part) => part !== null).join(" · ") || undefined}
-          />
+          />}
           {/* the Host's herdr is away: the step to take is on that PC (the sidebar's state line says the same) */}
           {/* this PC's herdr is told by its health reads: one failed read is unknown, a second unavailable, and
               neither is proof that herdr stopped. Another PC's is told by its bridge (the roster) */}
@@ -723,7 +768,7 @@ export function App() {
           {/* a sidebar that cannot be drawn leaves the panes working */}
           <RenderBoundary resetKey={null} fallback={(retry) => <RegionCrash message={t("The sidebar can't be shown.")} retry={retry} />}>
             <CrashProbe region="sidebar" />
-            <ReorderContext.Provider value={reorderCoordinator}><MachineSidebar machines={sidebarMachines} hiddenCount={machines.length - sidebarMachines.length} watching={auth?.role === "watch"} drawerOpen={drawerOpen} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} activity={activity} actions={actions} onSelect={selectTarget} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewTab(null); setNewSessionOpen(true); setDrawerOpen(false); }} /></ReorderContext.Provider>
+            <ReorderContext.Provider value={reorderCoordinator}><MachineSidebar machines={sidebarMachines} hiddenCount={machines.length - sidebarMachines.length} watching={auth?.role === "watch"} drawerOpen={drawerOpen} filterRequest={sidebarFilterRequest} selectedMachineId={selectedMachineId} selectedPaneId={selectedPaneId} activity={activity} actions={actions} onSelect={selectTarget} onUsageLogin={(paneId) => { selectTarget("local", paneId, "terminal"); void load(); }} onSetup={(machine, update = false) => { setUpdateRemote(update); setMachineDialog(machine); }} onNew={(id) => { setNewSessionMachineId(id); setNewTab(null); setNewSessionOpen(true); setDrawerOpen(false); }} /></ReorderContext.Provider>
           </RenderBoundary>
           <SidebarResizer width={sidebarWidth} onResize={setSidebarWidth} />
         </aside>
@@ -741,8 +786,21 @@ export function App() {
         <MachineActionBanner machines={machines} onSetup={(machine, update = false) => { setDrawerOpen(false); setUpdateRemote(update); setMachineDialog(machine); }} />
         {layoutNotice && <p className="pane-notice" role="alert">{layoutNotice}</p>}
         {shownHealth?.lan_exposure && <LanExposureNotice host={shownHealth.lan_exposure.host} onOpen={() => { setSettingsLinkPage("devices"); setSettingsOpen(true); }} />}
+        <PushHealthNotice onRepair={repairNotifications} onOpen={() => { setSettingsLinkPage("alerts"); setSettingsOpen(true); }} />
+        {setupGuide.guide !== null && setupGuide.paused && <SetupGuideResume onResume={setupGuide.resume} />}
+        {pairedNotices.length > 0 && <DevicePairedNotice events={pairedNotices} onDismiss={dismissPairedNotice} onOpen={(event) => { dismissPairedNotice(event); setSettingsLinkPage("devices"); setSettingsOpen(true); }} />}
         {/* the pane's tab, or two tabs side by side (lib/split.ts): a tab dragged down out of its strip,
             or a sidebar row dragged over this area, opens its pane in the half it is dropped on */}
+        {/* kept mounted while it steps aside, so a sign-in or a workspace being made goes on where it was; it is this PC's setup */}
+        {setupGuide.guide !== null && <MachineContext.Provider value="local"><SetupGuide auth={auth} hidden={setupGuide.paused} state={setupGuide.guide} dispatch={setupGuide.dispatch} onClose={setupGuide.close} onOpenSettings={(page) => { setSettingsLinkPage(page); setSettingsOpen(true); }}
+          // the tab was just made: picked before the roster has it, the pick would be released as a closed pane
+          // picked once the roster has it: only the latest tab the guide asked for, while it is open, Start
+          // was not pressed since, and nothing else was picked meanwhile
+          onOpenTerminal={(paneId) => { const at = picks.current; const latest = setupGuide.ticket(); void load().finally(() => { if (latest() && picks.current === at) selectTarget("local", paneId, "terminal"); }); }}
+          onStarting={setupGuide.voidTickets}
+          onPaired={() => void loadHealth()}
+          onOpened={(paneId, agentStarted) => { if (agentStarted) actions.agentStarted("local", paneId); setupGuide.finish(() => selectTarget("local", paneId)); void load(); }} /></MachineContext.Provider>}
+        {guideShown ? null :
         <div ref={paneAreaRef} className={`pane-split${splitOn ? " is-split" : ""}`} onDragEnterCapture={paneDragOver} onDragOverCapture={paneDragOver} onDragLeave={paneDragLeave} onDropCapture={paneDrop}>
           {(["a", "b"] as const).map((slot) => {
             // one pane: the solo slot, or a split's active half where the window is too narrow for both
@@ -837,6 +895,7 @@ export function App() {
                   <PaneCanvas key={machineId} snapshot={slotSnapshot} pane={pane} selectedPaneId={paneId} onSelect={onSelect} onChanged={actions.refresh} actionsRef={active ? paneActionsRef : undefined}
                     mirrored={herdr?.terminal_attach === false || herdr?.terminal_mirror === true}
                     onOpenInHalf={wideScreen ? (id, side) => dockSide({ machineId, paneId: id }, side) : undefined}
+                    onRecoverUnsent={(target) => openUnsent({ machineId, pane: target })}
                     renderPane={(item, itemActive, herdrSplit) => <OpenFileContext.Provider value={item ? (path) => openFile({ path, paneId: item.pane_id, machineId }) : null}>
                       <PaneTerminal
                         presentationKey={paneContentKey(machine, item, item ? lensOf(item) : slotView)}
@@ -894,7 +953,7 @@ export function App() {
             );
           })}
           <SplitDropPreview visible={splitDragOn && (paneDragging || tabDrag !== null)} side={dropAt} />
-        </div>
+        </div>}
         </div>
         </WebPanelContext.Provider>
         </OpenFileContext.Provider>
@@ -919,6 +978,8 @@ export function App() {
         prefill={newPrefill}
         onDraft={setNewFields}
         onClose={closeNewSession}
+        onOpenPane={(paneId) => { closeNewSession(); selectTarget(newSessionMachineId, paneId, "terminal"); void load(); }}
+        watching={auth?.role === "watch"}
         onCreated={(paneId, agentStarted, messageWaits = false) => {
           closeNewSession();
           if (agentStarted) actions.agentStarted(newSessionMachineId, paneId);
@@ -956,7 +1017,7 @@ export function App() {
         setFilesOpen(false);
         selectTargetRef.current(machineId, paneId);
       }} />
-      <SettingsDialog machines={machines} auth={auth} herdrVersion={shownHealth?.herdr?.version ?? null} security={security} open={settingsOpen} section={settingsSection} linkPage={settingsLinkPage} linkSection={settingsLinkSection} onPage={onSettingsPage} onClose={closeSettings} onUsageLogin={(paneId) => { closeSettings(); selectTarget("local", paneId, "terminal"); void load(); }} actions={actions} updates={updates} onEnableNotifications={enableNotifications} saveError={settingsSaveError} savePaused={settingsSavePaused} saveRetrying={settingsSaveRetrying} onRetrySave={retrySettingsSave} overPreview={(viewing !== null && !fileDocked) || diffViewing !== null} />
+      <SettingsDialog machines={machines} auth={auth} herdrVersion={shownHealth?.herdr?.version ?? null} security={security} open={settingsOpen} section={settingsSection} linkPage={settingsLinkPage} linkSection={settingsLinkSection} onPage={onSettingsPage} onClose={closeSettings} onUsageLogin={(paneId) => { closeSettings(); selectTarget("local", paneId, "terminal"); void load(); }} onOpenPane={(machineId, paneId) => { closeSettings(); selectTarget(machineId, paneId, "terminal"); void load(); }} actions={actions} updates={updates} onEnableNotifications={enableNotifications} saveError={settingsSaveError} savePaused={settingsSavePaused} saveRetrying={settingsSaveRetrying} onRetrySave={retrySettingsSave} overPreview={(viewing !== null && !fileDocked) || diffViewing !== null} />
       {filesOpen && selectedPane && (
         <FilesDialog start={selectedPane.foreground_cwd ?? selectedPane.cwd ?? ""} paneId={selectedPane.pane_id} viewing={(viewing !== null && !fileDocked) || diffViewing !== null} onOpenFile={viewFile}
           onOpenDiff={(comparison, file) => openDiff({ machineId: selectedMachineId, paneId: selectedPane.pane_id, directory: selectedPane.foreground_cwd ?? selectedPane.cwd ?? null, ...comparison, path: file.path, oldPath: file.old_path })}
@@ -976,9 +1037,10 @@ export function App() {
       {viewing !== null && !fileDocked && <MachineContext.Provider value={viewing.machineId}>
         <FileViewer key={viewing.path} path={viewing.path} paneId={viewing.paneId} onClose={closeFile} onOpen={(path) => openFile({ ...viewing, path, presentation })} onKind={reportFileKind} onTogglePresentation={toggleFilePresentation} keyboardActive={!settingsOpen} />
       </MachineContext.Provider>}
+      {unsentFor && <UnsentTextDialog machines={machines} canRecover={unsentFor.pane.agent != null} onClose={closeUnsent} onRecover={recover} />}
       <CommandPalette key={selectedMachineId} machines={sidebarMachines} onSelect={selectTarget} open={paletteOpen} initialQuery={paletteQuery} onClose={() => setPaletteOpen(false)} snapshot={snapshot} online={selectedMachine?.state === "connected"} selectedPaneId={selectedPaneId}
         // a peek shows the terminal: its toggle says Switch to chat, which ends the peek
-        view={terminalPeek !== null ? "terminal" : view} actions={actions} />
+        view={terminalPeek !== null ? "terminal" : view} actions={actions} watching={auth?.role === "watch"} />
       <MarkdownLinkMenu />
     </div></MachineContext.Provider></MachineSessionsProvider>
   );
