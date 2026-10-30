@@ -2,7 +2,7 @@
  * Simplified Chinese for the keys only the chat files use:
  * components/ChatView.tsx, components/Markdown.tsx, components/MermaidLightbox.tsx,
  * components/ChatMinimap.tsx, components/ImageLightbox.tsx, components/BackgroundTasks.tsx,
- * components/BackgroundAgentDetail.tsx, components/MarkdownLinkMenu.tsx,
+ * components/BackgroundAgentDetail.tsx, components/Artifacts.tsx, components/MarkdownLinkMenu.tsx,
  * lib/workBlocks.ts (with CATEGORY_LABEL), lib/toolVerbs.ts (with VERB_LABEL), lib/outcomeChip.ts,
  * lib/chatTimestamp.ts, lib/chatReadDeadline.ts.
  * Register and fixed terms follow ../i18n.zh.ts; a key another feature also uses goes there.
@@ -27,6 +27,7 @@ export const CHAT_ZH: Record<string, string> = {
   "Show all {n} lines": "显示全部 {n} 行",
   "Empty task": "空任务",
   "Couldn't copy. Select the text and copy it manually.": "无法复制。请选中文本并手动复制。",
+  "Input": "输入",
   "Output": "输出",
   "Arguments omitted (too large)": "参数过大，已省略",
   "thinking": "思考",
@@ -109,7 +110,6 @@ export const CHAT_ZH: Record<string, string> = {
   "Original delivery": "原始消息",
   "This is the first part of a longer result": "这是较长结果的开头部分",
   "Accepted": "已接受",
-  "Waiting for your answer": "等待你的回答",
   "Done · {evidence}": "已完成 · {evidence}",
   "transcript": "对话记录",
   "card answered": "已在卡片中回答",
@@ -146,10 +146,14 @@ export const CHAT_ZH: Record<string, string> = {
   "{n} tool calls": "{n} 次工具调用",
   "{n} tokens": "{n} 个 token",
   "Background tasks": "后台任务",
+  "Artifacts": "Artifact",
+  "{n} artifact": "{n} 个 Artifact",
+  "{n} artifacts": "{n} 个 Artifact",
   "Couldn't load the background tasks": "无法加载后台任务",
   "No background tasks to show yet": "暂时没有可显示的后台任务",
   "Running": "运行中",
   "{n} recently ended": "最近结束 {n} 个",
+  "{n} more running": "另有 {n} 个正在运行",
   "Nothing running right now": "当前没有正在运行的任务",
   "{done} of {total} done": "已完成 {done}/{total}",
   "{n} running": "{n} 个运行中",
@@ -181,7 +185,6 @@ export const CHAT_ZH: Record<string, string> = {
   "Work so far": "目前的工作",
   "blocked": "受阻",
   "paused": "已暂停",
-  "Goal": "目标",
   "complete": "已完成",
   "out of budget": "预算用尽",
   "Used so far: {spent}": "目前已用：{spent}",
@@ -205,4 +208,5 @@ export const CHAT_ZH: Record<string, string> = {
   "Show full message": "显示完整消息",
   "Open link": "打开链接",
   "Share link": "分享链接",
+  "Sent · waiting for the agent's next turn": "已发送 · 等待 agent 的下一轮",
 };

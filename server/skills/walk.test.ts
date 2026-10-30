@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import * as fs from "node:fs";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { paneCommands } from "../commands.ts";
+import { userHome } from "../user-home.ts";
 import { ancestorsToRepoRoot, createWalkBudget, customCommands, customCommandSteps, readFrontmatter, walkSkills, walkSkillSteps } from "./walk.ts";
 import { source as claude } from "./claude.ts";
 import { source as devin } from "./devin.ts";
@@ -11,10 +12,13 @@ import type { WalkRules } from "./walk.ts";
 
 const roots: string[] = [];
 const previousHome = process.env.HOME;
+const previousUserProfile = process.env.USERPROFILE;
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
   if (previousHome === undefined) delete process.env.HOME;
   else process.env.HOME = previousHome;
+  if (previousUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = previousUserProfile;
 });
 function temp(): string {
   const root = mkdtempSync(join(tmpdir(), "skill-walk-"));
@@ -293,4 +297,48 @@ describe("repository ancestors", () => {
     expect(ancestorsToRepoRoot(home)).toEqual([]);
     expect(ancestorsToRepoRoot(join(home, ".."))).toEqual([]);
   });
+
+  it("finds the user's home without HOME, as native Windows starts it", () => {
+    // a HOME set for Git or Emacs is not where the agents keep their stores: they ask Windows
+    expect(userHome({ HOME: "/home/user", USERPROFILE: "C:\\Users\\user" }, "win32")).toBe("C:\\Users\\user");
+    expect(userHome({ HOME: "/home/user" }, "win32")).toBe("/home/user");
+    expect(userHome({ HOME: "", USERPROFILE: "C:\\Users\\user" }, "win32")).toBe("C:\\Users\\user");
+    expect(userHome({}, "win32")).toBe(homedir());
+    expect(userHome({}, "linux")).toBe("");
+    // USERPROFILE is Windows' alone: a missing HOME elsewhere is not filled from it
+    expect(userHome({ HOME: "", USERPROFILE: "/profile" }, "linux")).toBe("");
+  });
+
+  it("falls back to USERPROFILE when HOME is unset on Windows", () => {
+    const home = temp();
+    delete process.env.HOME;
+    process.env.USERPROFILE = home;
+    const repo = join(home, "repo");
+    const cwd = join(repo, "sub");
+    mkdirSync(cwd, { recursive: true });
+    mkdirSync(join(repo, ".git"));
+    const platform = Object.getOwnPropertyDescriptor(process, "platform")!;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    try {
+      expect(ancestorsToRepoRoot(cwd)).toEqual([cwd, repo]);
+      expect(ancestorsToRepoRoot(home)).toEqual([]);
+    } finally {
+      Object.defineProperty(process, "platform", platform);
+    }
+  });
+
+  it("meets a home in another letter case on Windows, from below it and from above it", () => {
+    const root = temp();
+    mkdirSync(join(root, ".git"));
+    const home = join(root, "Home");
+    const cwd = join(home, "work");
+    mkdirSync(cwd, { recursive: true });
+    expect(ancestorsToRepoRoot(cwd, home.toUpperCase(), "win32")).toEqual([cwd]);
+    expect(ancestorsToRepoRoot(root, home.toUpperCase(), "win32")).toEqual([]);
+    expect(ancestorsToRepoRoot(root.toUpperCase(), home, "win32")).toEqual([]);
+    // elsewhere letter case tells folders apart
+    expect(ancestorsToRepoRoot(cwd, home.toUpperCase(), "linux")).toEqual([cwd, home, root]);
+    expect(ancestorsToRepoRoot(root, home.toUpperCase(), "linux")).toEqual([root]);
+  });
+
 });

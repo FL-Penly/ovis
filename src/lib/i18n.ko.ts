@@ -8,6 +8,8 @@ import { WORKSPACE_KO } from "./i18n/workspace.ko.ts";
 import { FILES_KO } from "./i18n/files.ko.ts";
 import { DEVICES_KO } from "./i18n/devices.ko.ts";
 import { USAGE_KO } from "./i18n/usage.ko.ts";
+import { SETUP_KO } from "./i18n/setup.ko.ts";
+import { GUIDE_KO } from "./i18n/guide.ko.ts";
 import { UPDATES_KO } from "./i18n/updates.ko.ts";
 import { PALETTE_KO } from "./i18n/palette.ko.ts";
 import { DOWNSTREAM_KO } from "./i18n/downstream.ko.ts"; // downstream
@@ -22,6 +24,9 @@ import { DOWNSTREAM_KO } from "./i18n/downstream.ko.ts"; // downstream
  * braces keep their English names.
  */
 const BASE: Record<string, string> = {
+  "Save": "저장",
+  "Goal": "목표",
+  "Waiting for your answer": "답변을 기다리는 중",
   "Back": "뒤로",
   "Scroll pane up": "패널 위로 스크롤",
   "Scroll pane down": "패널 아래로 스크롤",
@@ -40,7 +45,6 @@ const BASE: Record<string, string> = {
   "Agent default": "에이전트 기본값",
   "Phone & devices": "폰 및 기기",
   "Access token": "접속 토큰",
-  "Install app": "앱 설치",
 
   // ---- shortcuts (lib/shortcuts.ts labels) ----
   "Command palette": "명령 팔레트",
@@ -50,6 +54,10 @@ const BASE: Record<string, string> = {
   "New workspace": "새 워크스페이스",
   "Previous pane": "이전 패널",
   "Next pane": "다음 패널",
+  "Previous tab": "이전 탭",
+  "Next tab": "다음 탭",
+  "Previous workspace": "이전 워크스페이스",
+  "Next workspace": "다음 워크스페이스",
 
   // ---- agent status words (lib/status.ts) ----
   "READY": "대기",
@@ -122,6 +130,7 @@ const BASE: Record<string, string> = {
   "Rename failed: {reason}": "이름 바꾸기 실패: {reason}",
 
   // ---- PCs sidebar ----
+  "Filter workspaces and agents": "워크스페이스와 에이전트 필터",
   "Connecting…": "연결 중…",
   "Connected": "연결됨",
   "Reconnecting…": "재연결 중…",
@@ -137,6 +146,10 @@ const BASE: Record<string, string> = {
   // ---- new workspace ----
   "Browse": "찾아보기",
   "Cancel": "취소",
+  "Install": "설치",
+  "Installed": "설치됨",
+  "Not installed": "설치되지 않음",
+  "Sign in": "로그인",
   "Starting…": "시작 중…",
   "Start": "시작",
   // the launch's model, effort, first message and skills (lib/agentLaunchMode.ts, lib/newSession.ts)
@@ -163,6 +176,16 @@ const BASE: Record<string, string> = {
   // ---- prompt card ----
   "Submit": "제출",
   "Recommended": "추천",
+  "Agents": "에이전트",
+  "Check again": "다시 확인",
+  "Setup guide": "설정 안내",
+  "Could not confirm this browser is paired. Check that cookies are enabled, then try again.": "이 브라우저의 페어링을 확인할 수 없습니다. 쿠키가 허용되어 있는지 확인한 뒤 다시 시도하세요.",
+  "New code": "새 코드",
+  "Paired: {name}.": "페어링됨: {name}.",
+  "QR code that pairs a phone with code {code}": "코드 {code}로 폰을 페어링하는 QR 코드",
+  "Pairing code": "페어링 코드",
+  "Open this address on your phone": "폰에서 이 주소를 여세요",
+  "{agent} is ready": "{agent} 준비 완료",
 
 
   // ---- composer ----
@@ -222,6 +245,18 @@ const BASE: Record<string, string> = {
   "…": "…",
   "Alerts": "알림",
   "Sending…": "보내는 중…",
+  // the alerts health notice over the pane and Settings → Alerts say these alike (lib/pushHealth.ts)
+  "This device's push subscription is missing. Turn alerts on again.": "이 기기의 푸시 구독이 없습니다. 알림을\u00a0다시\u00a0켜세요.",
+  "The push service retired this device's subscription. Turn alerts on again to make a new one.": "푸시 서비스가 이 기기의 구독을 끝냈습니다. 알림을\u00a0다시\u00a0켜세요.",
+  "Turn alerts on again": "알림 다시 켜기",
+  "Turning alerts on…": "알림을 켜는 중…",
+  "This device's push subscription was made for another server key. Turn alerts on again to make a new one.": "이 기기의 푸시 구독은 다른 서버 키로 만들어졌습니다. 새로 만들려면 알림을\u00a0다시\u00a0켜세요.",
+  "The push service refused the last alert to this device. Send a test to check whether it still does.": "푸시 서비스가 이 기기로 보낸 마지막 알림을 거부했습니다. 테스트를 보내 지금도\u00a0그런지\u00a0확인하세요.",
+  "This page's service worker is not running, so it cannot make a push subscription. Reload the page, then try again.": "이 페이지의 서비스 워커가 실행되고 있지 않아 푸시 구독을 만들 수 없습니다. 페이지를 새로고침한 뒤 다시 시도하세요.",
+  "The PC did not take this device's push subscription. Try again.": "PC가 이 기기의 푸시 구독을 받지 않았습니다. 다시 시도하세요.",
+  "Brave would not make a push subscription. Turn on Use Google services for push messaging in Brave's privacy settings, then try again.": "Brave가 푸시 구독을 만들지 않았습니다. Brave 개인정보 설정에서 \"Use Google services for push messaging\"을 켠 뒤 다시 시도하세요.",
+  "This device would not make a push subscription. Check that push messaging is allowed in its settings, then try again.": "이 기기에서 푸시 구독을 만들지 못했습니다. 설정에서 푸시 메시지가 허용되어 있는지 확인한 뒤 다시 시도하세요.",
+  "This device can only watch.": "이 기기는 보기만 할 수 있습니다.",
   "Needs input": "입력 필요",
   "Finished": "작업 완료",
   "Open pane": "패널 열기",
@@ -268,6 +303,15 @@ const BASE: Record<string, string> = {
   // t3code ports (d)
   "Change PC": "PC 바꾸기",
   "Selected": "선택됨",
+  // Recover unsent text (components/UnsentText.tsx)
+  "Unsent text": "보내지 않은 글",
+  "Text you had not sent when herdr restarted. A new herdr gives pane IDs out again, so it waits here rather than in a pane it was not written for. Nothing here is sent.": "herdr가 다시 시작될 때 보내지 않았던 글입니다. 새 herdr는 패널 ID를 다시 나눠 주므로, 그 글이 다른 패널에 나타나지 않도록 여기에 보관합니다. 여기서는 아무것도 보내지 않습니다.",
+  "Put in message box": "입력창에 넣기",
+  "Adds the text to this pane's message box. Nothing is sent.": "이 패널의 입력창에 글을 추가합니다. 보내지는 않습니다.",
+  "Message box": "입력창",
+  "Terminal line": "터미널 입력 줄",
+  "Held message": "보관한 메시지",
+  "Held input": "보관한 입력",
 };
 
 /** The parts KO is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */
@@ -283,6 +327,8 @@ export const KO_PARTS: Record<string, Record<string, string>> = {
   files: FILES_KO,
   devices: DEVICES_KO,
   usage: USAGE_KO,
+  setup: SETUP_KO,
+  guide: GUIDE_KO,
   updates: UPDATES_KO,
   palette: PALETTE_KO,
   downstream: DOWNSTREAM_KO, // downstream

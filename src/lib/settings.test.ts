@@ -97,6 +97,48 @@ describe("saved theme migration", () => {
     expect(sanitizeSettings({ terminalMirrorWrap: "yes" }).terminalMirrorWrap).toBeNull();
   });
 
+  it("shows the sidebar filter until it is turned off, kept in its own key, out of an old tab's whole-record save", () => {
+    expect(loadSettings().sidebarFilter).toBe(true);
+    saveSettings(sanitizeSettings({ sidebarFilter: false }));
+    expect(JSON.parse(records.get(main) ?? "{}")).not.toHaveProperty("sidebarFilter");
+    oldSaveSettings({ ...readOld(), terminalFontSize: 18 });
+    expect(loadSettings().sidebarFilter).toBe(false);
+    expect(loadSettings().terminalFontSize).toBe(18);
+    saveSettings({ ...loadSettings(), sidebarFilter: true });
+    expect(loadSettings().sidebarFilter).toBe(true);
+    expect(sanitizeSettings({ sidebarFilter: "off" }).sidebarFilter).toBe(true);
+    records.set("ovis:sidebar-filter", "not json");
+    expect(loadSettings().sidebarFilter).toBe(true);
+  });
+
+  it("keeps the history page size in its own key, out of an old tab's whole-record save", () => {
+    expect(loadSettings().historyPrompts).toBe(10);
+    saveSettings(sanitizeSettings({ historyPrompts: 50 }));
+    expect(JSON.parse(records.get(main) ?? "{}")).not.toHaveProperty("historyPrompts");
+    oldSaveSettings({ ...readOld(), terminalFontSize: 18 });
+    expect(loadSettings().historyPrompts).toBe(50);
+    expect(loadSettings().terminalFontSize).toBe(18);
+    records.set("ovis:history-prompts", "12");
+    expect(loadSettings().historyPrompts).toBe(10);
+    records.set("ovis:history-prompts", "not json");
+    expect(loadSettings().historyPrompts).toBe(10);
+  });
+
+  it("keeps the composer's Artifacts chip in its own key, out of an old tab's whole-record save", () => {
+    expect(loadSettings().composerArtifacts).toBe(false);
+    saveSettings(sanitizeSettings({ composerArtifacts: true }));
+    expect(JSON.parse(records.get(main) ?? "{}")).not.toHaveProperty("composerArtifacts");
+    oldSaveSettings({ ...readOld(), terminalFontSize: 18 });
+    expect(loadSettings().composerArtifacts).toBe(true);
+    expect(loadSettings().terminalFontSize).toBe(18);
+    saveSettings({ ...loadSettings(), composerArtifacts: false });
+    expect(loadSettings().composerArtifacts).toBe(false);
+    records.set("ovis:composer-artifacts", "\"true\"");
+    expect(loadSettings().composerArtifacts).toBe(false);
+    records.set("ovis:composer-artifacts", "not json");
+    expect(loadSettings().composerArtifacts).toBe(false);
+  });
+
   it("survives repeated stale saves from an already-open old tab (f1)", () => {
     putOld({ theme: "dark", palette: "charcoal" });
     const stale = readOld();
@@ -195,6 +237,13 @@ it("keeps the composer's New tab button off until this device turns it on, and k
   expect(SHARED_SETTING_KEYS as readonly string[]).not.toContain("composerNewTabButton");
 });
 
+it("keeps the composer's Artifacts chip off until this device turns it on, and keeps that choice its own", () => {
+  expect(sanitizeSettings({}).composerArtifacts).toBe(false);
+  expect(sanitizeSettings({ composerArtifacts: true }).composerArtifacts).toBe(true);
+  expect(sanitizeSettings({ composerArtifacts: "true" }).composerArtifacts).toBe(false);
+  expect(SETTING_SCOPE.composerArtifacts).toBe("device");
+});
+
 it("keeps the screen wake lock off until this device explicitly enables it", () => {
   expect(DEFAULT_SETTINGS.keepScreenOn).toBe(false);
   expect(sanitizeSettings({}).keepScreenOn).toBe(false);
@@ -267,7 +316,7 @@ describe("telemetry settings snapshot", () => {
     });
     const snapshot = telemetrySettingsSnapshot(settings);
 
-    expect(NOTICE_VERSION).toBe(4);
+    expect(NOTICE_VERSION).toBe(5);
     expect(snapshot).toMatchObject({
       terminalInputMode: "direct",
       theme: "light",

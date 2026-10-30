@@ -8,6 +8,8 @@ import { WORKSPACE_ZH } from "./i18n/workspace.zh.ts";
 import { FILES_ZH } from "./i18n/files.zh.ts";
 import { DEVICES_ZH } from "./i18n/devices.zh.ts";
 import { USAGE_ZH } from "./i18n/usage.zh.ts";
+import { SETUP_ZH } from "./i18n/setup.zh.ts";
+import { GUIDE_ZH } from "./i18n/guide.zh.ts";
 import { UPDATES_ZH } from "./i18n/updates.zh.ts";
 import { PALETTE_ZH } from "./i18n/palette.zh.ts";
 import { DOWNSTREAM_ZH } from "./i18n/downstream.zh.ts"; // downstream
@@ -26,6 +28,9 @@ import { DOWNSTREAM_ZH } from "./i18n/downstream.zh.ts"; // downstream
  * Placeholders in braces keep their English names.
  */
 const BASE: Record<string, string> = {
+  "Save": "保存",
+  "Goal": "目标",
+  "Waiting for your answer": "等待你的回答",
   "Back": "返回",
   "Scroll pane up": "向上滚动面板",
   "Scroll pane down": "向下滚动面板",
@@ -44,7 +49,6 @@ const BASE: Record<string, string> = {
   "Agent default": "代理默认",
   "Phone & devices": "手机和设备",
   "Access token": "访问 Token",
-  "Install app": "安装应用",
 
   // ---- shortcuts (lib/shortcuts.ts labels) ----
   "Command palette": "命令面板",
@@ -54,6 +58,10 @@ const BASE: Record<string, string> = {
   "New workspace": "新建工作区",
   "Previous pane": "上一个窗格",
   "Next pane": "下一个窗格",
+  "Previous tab": "上一个标签页",
+  "Next tab": "下一个标签页",
+  "Previous workspace": "上一个工作区",
+  "Next workspace": "下一个工作区",
 
   // ---- agent status words (lib/status.ts) ----
   "READY": "就绪",
@@ -126,6 +134,7 @@ const BASE: Record<string, string> = {
   "Rename failed: {reason}": "重命名失败：{reason}",
 
   // ---- PCs sidebar ----
+  "Filter workspaces and agents": "筛选工作区和代理",
   "Connecting…": "正在连接…",
   "Connected": "已连接",
   "Reconnecting…": "正在重连…",
@@ -141,6 +150,10 @@ const BASE: Record<string, string> = {
   // ---- new workspace ----
   "Browse": "浏览",
   "Cancel": "取消",
+  "Install": "安装",
+  "Installed": "已安装",
+  "Not installed": "未安装",
+  "Sign in": "登录",
   "Starting…": "正在启动…",
   "Start": "启动",
   // the launch's model, effort, first message and skills (lib/agentLaunchMode.ts, lib/newSession.ts)
@@ -167,6 +180,16 @@ const BASE: Record<string, string> = {
   // ---- prompt card ----
   "Submit": "提交",
   "Recommended": "推荐",
+  "Agents": "代理",
+  "Check again": "重新检查",
+  "Setup guide": "设置向导",
+  "Could not confirm this browser is paired. Check that cookies are enabled, then try again.": "无法确认此浏览器已配对。请检查是否允许 Cookie，然后重试。",
+  "New code": "新代码",
+  "Paired: {name}.": "已配对：{name}。",
+  "QR code that pairs a phone with code {code}": "使用代码 {code} 配对手机的二维码",
+  "Pairing code": "配对码",
+  "Open this address on your phone": "在手机上打开此地址",
+  "{agent} is ready": "{agent} 已就绪",
 
 
   // ---- composer ----
@@ -226,6 +249,18 @@ const BASE: Record<string, string> = {
   "…": "…",
   "Alerts": "提醒",
   "Sending…": "正在发送…",
+  // the alerts health notice over the pane and Settings → Alerts say these alike (lib/pushHealth.ts)
+  "This device's push subscription is missing. Turn alerts on again.": "此设备的推送订阅不存在。请重新开启提醒。",
+  "The push service retired this device's subscription. Turn alerts on again to make a new one.": "推送服务已停用此设备的订阅。重新开启提醒即可创建新的订阅。",
+  "Turn alerts on again": "重新开启提醒",
+  "Turning alerts on…": "正在开启提醒…",
+  "This device's push subscription was made for another server key. Turn alerts on again to make a new one.": "此设备的推送订阅是用另一个服务器密钥创建的。请重新开启提醒以创建新的订阅。",
+  "The push service refused the last alert to this device. Send a test to check whether it still does.": "推送服务拒绝了发往此设备的上一条提醒。请发送测试，看看是否仍被拒绝。",
+  "This page's service worker is not running, so it cannot make a push subscription. Reload the page, then try again.": "此页面的 Service Worker 未在运行，无法创建推送订阅。请刷新页面后重试。",
+  "The PC did not take this device's push subscription. Try again.": "电脑未接受此设备的推送订阅。请重试。",
+  "Brave would not make a push subscription. Turn on Use Google services for push messaging in Brave's privacy settings, then try again.": "Brave 未创建推送订阅。请在 Brave 的隐私设置中开启“Use Google services for push messaging”，然后重试。",
+  "This device would not make a push subscription. Check that push messaging is allowed in its settings, then try again.": "此设备未能创建推送订阅。请确认其设置中允许推送消息，然后重试。",
+  "This device can only watch.": "此设备只能查看。",
   "Needs input": "需要输入",
   "Finished": "已完成",
   "Open pane": "打开窗格",
@@ -272,6 +307,15 @@ const BASE: Record<string, string> = {
   // t3code ports (d)
   "Change PC": "切换电脑",
   "Selected": "已选择",
+  // Recover unsent text (components/UnsentText.tsx)
+  "Unsent text": "未发送的文本",
+  "Text you had not sent when herdr restarted. A new herdr gives pane IDs out again, so it waits here rather than in a pane it was not written for. Nothing here is sent.": "herdr 重启时尚未发送的文本。新的 herdr 会重新分配面板 ID，因此这些文本保存在这里，而不会出现在不属于它的面板中。这里不会发送任何内容。",
+  "Put in message box": "放入输入框",
+  "Adds the text to this pane's message box. Nothing is sent.": "将文本添加到此面板的输入框中。不会发送。",
+  "Message box": "输入框",
+  "Terminal line": "终端输入行",
+  "Held message": "保留的消息",
+  "Held input": "保留的输入",
 };
 
 /** The parts ZH is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */
@@ -287,6 +331,8 @@ export const ZH_PARTS: Record<string, Record<string, string>> = {
   files: FILES_ZH,
   devices: DEVICES_ZH,
   usage: USAGE_ZH,
+  setup: SETUP_ZH,
+  guide: GUIDE_ZH,
   updates: UPDATES_ZH,
   palette: PALETTE_ZH,
   downstream: DOWNSTREAM_ZH, // downstream

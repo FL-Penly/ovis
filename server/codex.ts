@@ -8,7 +8,7 @@ import nodePath, { isAbsolute, join, type PlatformPath } from "node:path";
 import type { ConversationPart, ConversationTurn, HerdrPane } from "../shared/protocol.ts";
 import { patchFiles, patchText } from "../shared/patch.ts";
 import { processStartedAt, processStartLowerBound } from "./process-start.ts";
-import { codexImageParts } from "./codex-images.ts";
+import { CODEX_TOOL_IMAGE_REF, codexImageParts, codexOutputPictures } from "./codex-images.ts";
 import { codexReadCall, codexReadSkills, selectedSkill } from "./skill-activity.ts";
 import { trimOutput } from "./tool-output.ts";
 import type { TranscriptParser } from "./transcript-records.ts";
@@ -324,6 +324,11 @@ export function createCodexTranscriptParser(state: CodexParseState = { turns: []
         const output = contentText(payload.output);
         trimOutput(tool, output, string(payload.call_id));
         if (codexCallFailed(output)) tool.error = true;
+        // the pictures it returned (view_image, an image generation, a screenshot a command read), named by
+        // the call this output answers and fetched only when shown; the generation event's copy is not read
+        const pictures = codexOutputPictures(payload.output).map(({ mediaType }, index) => ({ media_type: mediaType, ref: `codex-tool:${string(payload.call_id)}:${index}` }))
+          .filter(({ ref }) => CODEX_TOOL_IMAGE_REF.test(ref));
+        if (pictures.length > 0) tool.images = pictures;
         if (tool.skill) tool.skill.status = tool.error ? "failed" : "loaded";
         // done, outcome unknown: Codex records no failure flag, and the output text is no verdict
         delete tool.state;
@@ -916,7 +921,7 @@ const normalizeDisplay = (text: string): string => text.normalize("NFKC").replac
  * it is made of, for what another conversation's screen may show of it (mayShowWords).
  */
 function answerAnchor(text: string): Anchor | null {
-  const pieces = text.split(/\]\([^)\s]*\)/);
+  const pieces = cutAtLinkTargets(text).map((piece) => piece.text);
   for (let index = pieces.length - 1; index >= 0; index--) {
     const anchor = normalizeDisplay(pieces[index]!).slice(-160);
     if (anchor.length >= 64 && new Set(anchor).size >= 12) return { anchor, words: wordsEnding(pieces[index]!, anchor.length) };
@@ -973,11 +978,8 @@ export function matchCodexTranscript(screen: string, candidates: { path: string;
 
 /** Text as an answer's anchor is looked for in it (answerAnchor): cut at link targets, each piece letters and digits. */
 function saidText(text: string): string[] {
-  return text.split(LINK_TARGET).map(normalizeDisplay);
+  return cutAtLinkTargets(text).map((piece) => normalizeDisplay(piece.text));
 }
-
-/** A markdown link's target, as answerAnchor cuts a text at it. */
-const LINK_TARGET = /\]\([^)\s]*\)/;
 
 /**
  * What a conversation said, as saidText reads it, joined, and where each of its records ends in it
@@ -1096,7 +1098,18 @@ function cutAtLinkTargets(text: string): { text: string; target: string }[] {
   let search = 0;
   for (let at = text.indexOf("](", search); at >= 0; at = text.indexOf("](", search)) {
     let end = at + 2;
-    while (end < text.length && text[end] !== ")" && !/\s/.test(text[end]!)) end++;
+    // Codex renders absolute local paths with spaces as file links, shortening the target
+    // relative to cwd. Those spaces are part of the path, not the end of its destination.
+    // Keep ordinary whitespace/malformed prose unchanged, and never cross a line boundary.
+    const local = /^<?(?:\/|[A-Za-z]:[\\/])/.test(text.slice(end, end + 4));
+    if (text[end] === "<") {
+      while (end < text.length && text[end] !== ">" && !/[\r\n]/.test(text[end]!)) end++;
+      if (text[end] !== ">") { search = end; continue; }
+      end++;
+    } else {
+      while (end < text.length && text[end] !== ")" && !/[\r\n]/.test(text[end]!)
+        && (local || !/\s/.test(text[end]!))) end++;
+    }
     // unclosed: no "](" before `end` is closed either, so all of it stays text
     if (text[end] !== ")") { search = end; continue; }
     pieces.push({ text: text.slice(start, at), target: text.slice(at + 2, end) });
@@ -1496,33 +1509,40 @@ async function heldThreadIds(home: string): Promise<Map<string, { loadedAt: numb
     } catch { /* unlocked and removed meanwhile */ }
   }
   if (named.size === 0) return held;
-  let table: string;
-  try { table = readFileSync("/proc/locks", "utf8"); } catch { return null; }
-  // the lock files each holder has open: inode numbers are only unique within a file system
-  const openBy = new Map<string, Set<string>>();
-  for (const line of table.split("\n")) {
-    // a held write flock: one a process waits for reads "N: -> FLOCK ..."
-    const lock = /^\d+:\s+FLOCK\s+\S+\s+WRITE\s+(\d+)\s+[0-9a-f]+:[0-9a-f]+:(\d+)\s/.exec(line);
-    const name = lock ? named.get(lock[2]!) : undefined;
-    if (lock === null || name === undefined) continue;
-    let names = openBy.get(lock[1]!);
-    if (names === undefined) {
-      names = new Set();
-      openBy.set(lock[1]!, names);
-      try {
-        for (const descriptor of readdirSync(`/proc/${lock[1]}/fd`)) {
-          try {
-            const target = readlinkSync(`/proc/${lock[1]}/fd/${descriptor}`);
-            if (nodePath.dirname(target) === folder) names.add(nodePath.basename(target));
-          } catch { /* closed while listing */ }
+  // the kernel hands /proc/locks out a page at a time, and a lock any process takes or drops between
+  // two pages moves the lines after it: one read may leave a held lock out (or show one twice). So a
+  // lock file no read has shown held is looked for in two more reads before it counts as nobody's
+  const unseen = () => [...named.values()].some((name) => !held.has(name.slice(0, -".lock".length).toLowerCase()));
+  for (let read = 0; read < 3 && unseen(); read++) {
+    let table: string;
+    try { table = readFileSync("/proc/locks", "utf8"); } catch { return null; }
+    // the lock files each holder has open, listed again for each read: a holder may have opened
+    // another since the last one. Inode numbers are only unique within a file system
+    const openBy = new Map<string, Set<string>>();
+    for (const line of table.split("\n")) {
+      // a held write flock: one a process waits for reads "N: -> FLOCK ..."
+      const lock = /^\d+:\s+FLOCK\s+\S+\s+WRITE\s+(\d+)\s+[0-9a-f]+:[0-9a-f]+:(\d+)\s/.exec(line);
+      const name = lock ? named.get(lock[2]!) : undefined;
+      if (lock === null || name === undefined) continue;
+      let names = openBy.get(lock[1]!);
+      if (names === undefined) {
+        names = new Set();
+        openBy.set(lock[1]!, names);
+        try {
+          for (const descriptor of readdirSync(`/proc/${lock[1]}/fd`)) {
+            try {
+              const target = readlinkSync(`/proc/${lock[1]}/fd/${descriptor}`);
+              if (nodePath.dirname(target) === folder) names.add(nodePath.basename(target));
+            } catch { /* closed while listing */ }
+          }
+        } catch (error) {
+          // gone, and its lock with it; another user's process: what it holds cannot be told, and a
+          // thread left out could be the one a pane shows
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") return null;
         }
-      } catch (error) {
-        // gone, and its lock with it; another user's process: what it holds cannot be told, and a
-        // thread left out could be the one a pane shows
-        if ((error as NodeJS.ErrnoException).code !== "ENOENT") return null;
       }
+      if (names.has(name)) hold(name.slice(0, -".lock".length).toLowerCase(), born.get(name) ?? 0, execRun(readArgv(lock[1]!)));
     }
-    if (names.has(name)) hold(name.slice(0, -".lock".length).toLowerCase(), born.get(name) ?? 0, execRun(readArgv(lock[1]!)));
   }
   return held;
 }

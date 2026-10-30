@@ -12,6 +12,7 @@ export const TERMINAL_JA: Record<string, string> = {
   "Waiting for terminal input…": "端末の入力準備中…",
   "Paused while you use another window": "別のウィンドウを使っている間は一時停止中",
   "View only while you use another window · click to type": "別のウィンドウを使っている間は表示のみ · クリックで入力",
+  "View only while you are not typing here · type or click to type": "入力していない間は表示のみ · 入力かクリックで入力",
   "Drop on the left": "左側にドロップ",
   "Drop on the right": "右側にドロップ",
   "Live terminal is coming to Windows PCs: herdr cannot attach a terminal there yet. The chat lens works now.": "Windows PC のライブターミナルは準備中です。herdr はまだ Windows でターミナルをアタッチできません。チャットは今すぐ使えます。",
@@ -105,7 +106,6 @@ export const TERMINAL_JA: Record<string, string> = {
   "Close pane": "ペインを閉じる",
   "Wrap to screen": "画面の幅で折り返す",
   "Original width": "元の幅で表示",
-  "Save": "保存",
   "Move tab left": "タブを左に移動",
   "Move tab right": "タブを右に移動",
   "Move to workspace…": "ワークスペースへ移動…",
@@ -120,4 +120,5 @@ export const TERMINAL_JA: Record<string, string> = {
   "Paste into the input line": "入力行に貼り付け",
   "Show keyboard": "キーボードを表示",
   "Hide keyboard": "キーボードを非表示",
+  "Recover unsent text": "未送信のテキストを復元",
 };

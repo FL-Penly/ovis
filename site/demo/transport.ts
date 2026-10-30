@@ -14,8 +14,9 @@
  * a chat gets a demo answer.
  * What does not: files, images, push and remote PCs, which need a real machine.
  */
-import type { AgentIntegration, AgentStatus, CommandForm, CommandOutcome, ConversationTurn, IntegrationsResponse, Machine, MachineEvent, OmoActivity, OmoTask, PaneBackgroundAgentDetail, PaneDirection, PaneFindMatch, PaneFindRequest, PanePlan, PaneResized, PaneSplit, PaneSwapped, PaneZoomed, PendingMessage, PlanStep, PluginActionResult, PluginActions, PluginActionsResponse, PortalStatus, SecuritySummary, ServerMessage, SessionSnapshot, SlashCommand, TabMoved, TabMovedToWorkspace, UsageReport, WorkspaceCreated, WorkspaceInfo, WorktreeEntry, WorktreeListing, WorktreeOpened, WorktreeRemoved } from "../../shared/protocol.ts";
-import type { RepoBranchComparison, RepoDiffFile, RepoDiffFileList, RepoDiffFilePatch, RepoDiffRefs, RepoDiffRepository, RepoDiffScope, SessionHistoryAgent, SessionHistoryResponse, SessionResumeResponse } from "../../shared/protocol.ts";
+import { NO_AGENT_MESSAGE } from "../../shared/submit-outcome.ts";
+import type { AgentIntegration, AgentStatus, CommandForm, CommandOutcome, ConversationTurn, DevicePairedEvent, DevicesRevokedAll, HealthAuth, IntegrationsResponse, Machine, MachineEvent, OmoActivity, OmoTask, PairedDevice, PairingCode, PaneBackgroundAgentDetail, PaneDirection, PaneFindMatch, PaneFindRequest, PanePlan, PaneResized, PaneSplit, PaneSwapped, PaneZoomed, PendingMessage, PlanStep, PluginActionResult, PluginActions, PluginActionsResponse, PortalStatus, SecuritySummary, ServerMessage, SessionSnapshot, SlashCommand, TabMoved, TabMovedToWorkspace, UsageReport, WorkspaceCreated, WorkspaceInfo, WorktreeEntry, WorktreeListing, WorktreeOpened, WorktreeRemoved } from "../../shared/protocol.ts";
+import type { PushSubscriptionStatus, RepoBranchComparison, RepoDiffFile, RepoDiffFileList, RepoDiffFilePatch, RepoDiffRefs, RepoDiffRepository, RepoDiffScope, SessionHistoryAgent, SessionHistoryResponse, SessionResumeResponse } from "../../shared/protocol.ts";
 import { normalizeThemeChange, sharedPreferencesBody, type SharedPreferences } from "../../shared/preferences.ts";
 import { VOICE_DEFAULTS, type VoiceStatus } from "../../shared/voice.ts";
 import { isAgentName } from "../../shared/agent-name.ts";
@@ -26,7 +27,7 @@ import { neighborPane } from "../../src/lib/layoutMap.ts";
 import { closeLayoutPane, resizeLayout, setLayoutSplitRatio, splitLayout, swapLayoutPanes } from "../../src/lib/layoutTree.ts";
 import { rollupStatus } from "../../src/lib/status.ts";
 import { movedTabOrder } from "../../src/lib/tabOrder.ts";
-import { agentSkillRows, CHATS, PROMPT, SESSION_HISTORY_AGENTS, sessionHistoryRows, SPECS, type DemoSpec } from "./fixtures.ts";
+import { agentSkillRows, CHATS, DEMO_AGENT_CATALOG, DEMO_PUSH, PROMPT, resumedSession, SESSION_HISTORY_AGENTS, sessionHistoryRows, SPECS, type DemoSpec } from "./fixtures.ts";
 import { DemoHistory } from "./history.ts";
 import { screenAgent, screenCommand, screenFrame } from "./agentScreens.ts";
 import machinesFixture from "./fixtures/machines.json";
@@ -88,6 +89,8 @@ const snapshot = (): SessionSnapshot => local.snapshot!;
 // Reloading the demo starts its in-memory server over, so IDs from the previous page cannot match.
 for (const machine of machines) if (machine.snapshot) {
   machine.snapshot.finish_epoch = crypto.randomUUID();
+  // each PC's one fictional herdr, the same on every load: what the demo stores stays its panes'
+  machine.snapshot.herdr_lifetime = `demo-${machine.id}`;
   for (const pane of machine.snapshot.panes) pane.finish_id = pane.agent_status === "done" ? 1 : 0;
 }
 /** pane id -> fixture key ("api", "web", …) */
@@ -1002,6 +1005,14 @@ const DEMO_BRANCH_DIFF: { file: RepoDiffFile; patch: string | null }[] = [
   ].join("\n") },
 ].sort((left, right) => (left.file.path < right.file.path ? -1 : 1));
 
+/**
+ * Settings → Subscription usage's "Read Claude's limits from its status line" on the demo: off until
+ * turned on. `?demo_usage=refused` starts Claude refused as a blocked network refuses it (a 403 to a
+ * token that has not expired), offering the status line until it is turned on.
+ */
+let demoStatusline = false;
+const USAGE_STATE = new URLSearchParams(location.search).get("demo_usage");
+
 /** Settings → Subscription usage on the demo: plans as the workstation's CLIs might report them, resets counted from now. */
 function usageReport(): UsageReport {
   const now = Date.now();
@@ -1011,11 +1022,13 @@ function usageReport(): UsageReport {
   const week = (hours: number) => ({ resets_at: at(hours), starts_at: at(hours - 168) });
   const checked = new Date(now).toISOString();
   return { providers: [
-    { id: "claude", key: "claude:demo-claude", account: "sam@example.com", plan: "max", problem: null, checked_at: checked, windows: [
-      { kind: "session", scope: null, used_percent: 38, ...session(2.4) },
-      { kind: "week", scope: null, used_percent: 61, ...week(78) },
-      { kind: "week", scope: "Sonnet", used_percent: 12, ...week(78) },
-    ] },
+    USAGE_STATE === "refused" && !demoStatusline
+      ? { id: "claude", key: "claude:demo-claude", account: "sam@example.com", plan: "max", problem: "expired", checked_at: null, windows: [], statusline_offer: true }
+      : { id: "claude", key: "claude:demo-claude", account: "sam@example.com", plan: "max", problem: null, checked_at: checked, windows: [
+        { kind: "session", scope: null, used_percent: 38, ...session(2.4) },
+        { kind: "week", scope: null, used_percent: 61, ...week(78) },
+        ...(demoStatusline ? [] : [{ kind: "week" as const, scope: "Sonnet", used_percent: 12, ...week(78) }]),
+      ] },
     { id: "codex", key: "codex:demo-codex-work", account: "sam@work.example", plan: "pro", problem: null, checked_at: checked, windows: [
       { kind: "session", scope: null, used_percent: 22, ...session(1.2) },
       { kind: "week", scope: null, used_percent: 84, ...week(97) },
@@ -1035,6 +1048,59 @@ function usageReport(): UsageReport {
       { kind: "month", scope: null, used_percent: 15, resets_at: at(520), starts_at: null },
     ] },
   ] };
+}
+
+// ---- paired devices (Settings → Phone & devices) ----------------------------------------------
+
+/**
+ * Fictional paired devices, and what that page does with them: rename, revoke one, revoke all,
+ * and start a pairing that a fictional phone completes a moment later, which is what sends the
+ * `device-paired` event every open window shows as a line (src/components/DevicePairedNotice.tsx).
+ * All of it answers only with `?demo_devices=`: without it the demo has no device list (its
+ * /api/devices is a 404, which scripts/security-summary-demo-regression.ts relies on). `list` is the
+ * fictional devices below; another value picks a state for the browser lane's captures: `empty` (nothing paired),
+ * `watch` (this browser is a device that only watches), `slow` (the list is held until the page calls
+ * `herdrDemoReleaseDevices()`, so a capture of the loading state never races the answer) or `error`
+ * (the registry cannot be written, so revoking fails). No real credential is involved anywhere.
+ * `?demo_connection=drops` loses the bridge connection right after the first pairing is heard, and
+ * never gets it back: the line stays while the header says it is reconnecting. `?demo_pairing=held`
+ * keeps the fictional phone from entering the code until the page calls `herdrDemoReleasePairing()`
+ * (once per pairing started), so the lane sees the code before the enrollment takes it away; without
+ * it, the phone enters the code a moment later, as a visitor to the demo expects.
+ */
+const DEVICE_STATE = new URLSearchParams(location.search).get("demo_devices");
+const CONNECTION_DROPS = new URLSearchParams(location.search).get("demo_connection") === "drops";
+let connectionLost = false;
+const DEVICE_PAIRS_AFTER_MS = 1800;
+/** `held`: each pairing started waits here until the page releases it; no timer decides it */
+const PAIRING_HELD = new URLSearchParams(location.search).get("demo_pairing") === "held";
+const heldPairings: (() => void)[] = [];
+if (PAIRING_HELD) (globalThis as { herdrDemoReleasePairing?: () => boolean }).herdrDemoReleasePairing = () => {
+  const release = heldPairings.shift();
+  release?.();
+  return release !== undefined;
+};
+/** `slow`: the device list waits on this until `herdrDemoReleaseDevices()` is called; no timer decides it */
+const deviceListHeld = DEVICE_STATE === "slow" ? new Promise<void>((resolve) => { (globalThis as { herdrDemoReleaseDevices?: () => void }).herdrDemoReleaseDevices = resolve; }) : null;
+const demoDevices: PairedDevice[] = DEVICE_STATE === "empty" ? [] : [
+  { id: "6f1c2a9d4b7e8503", label: "Pixel 9", role: "drive", created_at: ago(41 * 24 * 60), last_seen_at: ago(3), current: DEVICE_STATE === "watch" },
+  { id: "0b8e7d6c5a493f21", label: "iPad", role: "drive", created_at: ago(12 * 24 * 60), last_seen_at: ago(26 * 60), current: false },
+  { id: "c3d9e1f24a5b6078", label: "Kitchen laptop, the old one with the broken hinge", role: "drive", created_at: ago(3 * 24 * 60), last_seen_at: null, current: false },
+];
+const demoAuth: HealthAuth = DEVICE_STATE === "watch" ? { required: false, authenticated: true, via: "device", role: "watch" } : { required: false, authenticated: true };
+let demoPairings = 0;
+// what a server answers when the registry write fails (server/http.ts): a log reference, nothing more
+const registryUnwritable = () => error("internal_error", "internal error (d3m0f41l0001)", 500);
+/** The fictional phone that enters the code: a device more, and the event every window hears. */
+function demoDevicePairs(): void {
+  demoPairings += 1;
+  const device: PairedDevice = { id: `${demoPairings.toString(16).padStart(4, "0")}9e2d1c0b7a6f`, label: demoPairings === 1 ? "Living-room iPad" : `Phone ${demoPairings}`, role: "drive", created_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), current: false };
+  demoDevices.push(device);
+  emitSse({ type: "device-paired", event_id: `d${demoPairings.toString(16).padStart(15, "0")}`, device_id: device.id, label: device.label, enrolled_at: device.created_at } satisfies DevicePairedEvent);
+  if (CONNECTION_DROPS) {
+    connectionLost = true;
+    for (const socket of [...sockets]) socket.close(1006, "demo: the connection was lost");
+  }
 }
 
 /** One fictional plugin, so the palette's Plugin actions group and Settings have something to show. */
@@ -1066,7 +1132,8 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
 
   if (path === "/api/health") {
     const variant = demoSecurity();
-    const auth = variant === "watch" ? { required: false, authenticated: true, via: "device" as const, role: "watch" as const } : { required: false, authenticated: true };
+    // a device that only watches, from either demo switch: the security facts' own, or the device states' (`?demo_devices=watch`)
+    const auth: HealthAuth = variant === "watch" ? { required: false, authenticated: true, via: "device", role: "watch" } : demoAuth;
     const security = DEMO_SECURITY_FACTS[variant];
     const facts = security ? { security } : {};
     // only the herdr-free bridge scope fails or waits: the rest of the demo keeps answering
@@ -1079,6 +1146,38 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
     const lan = variant === "unknown" ? { lan_exposure: { host: "0.0.0.0" } } : {};
     return json({ ok: true, herdr: { version: "0.9.0", protocol: 22, terminal_attach: true }, auth, ...lan, ...facts, web_ui: { boot_id: orderOf(local.id).epoch, revision: null } }, 200, { "cache-control": "no-store" });
   }
+  // without `?demo_devices=` the demo answers no device route: its /api/devices stays a 404, as before
+  if (DEVICE_STATE !== null) {
+    if (path === "/api/devices") {
+      // the `slow` state: held until released, so the lane captures the page while its list loads
+      if (deviceListHeld) await deviceListHeld;
+      return json({ devices: demoDevices }, 200, { "cache-control": "no-store" });
+    }
+    if (path === "/api/devices/pair/start") {
+      if (demoAuth.role === "watch") return error("read_only", "this device can only watch", 403);
+      if (PAIRING_HELD) heldPairings.push(demoDevicePairs);
+      else setTimeout(demoDevicePairs, DEVICE_PAIRS_AFTER_MS);
+      return json({ code: "482913", expires_at: new Date(Date.now() + 10 * 60_000).toISOString() } satisfies PairingCode, 200, { "cache-control": "no-store" });
+    }
+    if (path === "/api/devices/revoke-all") {
+      if (demoAuth.role === "watch") return error("read_only", "this device can only watch", 403);
+      if (DEVICE_STATE === "error") return registryUnwritable();
+      const revoked = demoDevices.length;
+      demoDevices.length = 0;
+      return json({ revoked } satisfies DevicesRevokedAll, 200, { "cache-control": "no-store" });
+    }
+    const deviceId = /^\/api\/devices\/([0-9a-f]{16})$/.exec(path)?.[1];
+    if (deviceId !== undefined) {
+      if (demoAuth.role === "watch") return error("read_only", "this device can only watch", 403);
+      const index = demoDevices.findIndex((device) => device.id === deviceId);
+      if (index === -1) return error("not_found", "no such device", 404);
+      if (DEVICE_STATE === "error") return registryUnwritable();
+      if (method === "DELETE") { demoDevices.splice(index, 1); return new Response(null, { status: 204 }); }
+      const label = String((await bodyOf(init, input))["label"] ?? "").replace(/\s+/g, " ").trim().slice(0, 48) || "Device";
+      demoDevices[index] = { ...demoDevices[index]!, label };
+      return json(demoDevices[index]);
+    }
+  }
   if (path === "/api/machines") {
     const asked = query.getAll("verify_source_boot");
     if (asked.length > 1) return error("invalid_query", "verify_source_boot names one PC", 400);
@@ -1090,6 +1189,8 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
   }
   if (path === "/api/session") return json({ snapshot: readSnapshot(local) });
   if (path === "/api/agents") return json(agentsFixture);
+  if (path === "/api/agent-catalog") return json(DEMO_AGENT_CATALOG, 200, { "cache-control": "no-store" });
+  if (path === "/api/agent-catalog/install" || path === "/api/agent-catalog/sign-in") return error("demo", "The demo installs nothing. Install agents on your own PC.", 409);
   if (path === "/api/integrations") return json({ integrations: integrationsFixture } satisfies IntegrationsResponse);
   if (path === "/api/updates") return json({ managed: false, auto_update: false, phase: "idle", current_revision: null, latest_revision: null, current_version: __APP_VERSION__, latest_version: null, available: false, checked_at: null, blocked_reason: null, error: null }, 200, { "cache-control": "no-store" });
   if (path === "/api/updates/notes") return json({ revision: null, releases: [], omitted: 0 }, 200, { "cache-control": "no-store" });
@@ -1115,6 +1216,15 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
   if (path === "/api/herdr-ui") return json({ copy_on_select: true }, 200, { "cache-control": "no-store" });
   if (path === "/api/access") return json({ port: 7317, tailscale: { state: "running", dns_name: "workstation.example.ts.net", serving_url: "https://workstation.example.ts.net", serve_command: null, serve_url: null } });
   if (path === "/api/usage") return json(usageReport(), 200, { "cache-control": "no-store" });
+  if (path === "/api/usage/statusline") {
+    if (method === "POST") {
+      let raw: unknown;
+      try { raw = init?.body ? JSON.parse(String(init.body)) : undefined; } catch { return error("invalid_json", "The body is not JSON", 400); }
+      if (typeof raw !== "object" || raw === null || typeof (raw as { enabled?: unknown }).enabled !== "boolean") return error("invalid_body", "Send { \"enabled\": true } or { \"enabled\": false }", 400);
+      demoStatusline = (raw as { enabled: boolean }).enabled;
+    }
+    return json({ installed: demoStatusline, supported: true }, 200, { "cache-control": "no-store" });
+  }
   if (path === "/api/usage/login") {
     if (method === "GET") {
       if (url.searchParams.has("provider")) return json({ accounts: url.searchParams.get("provider") === "cursor" ? ["cursor@example.test"] : [] });
@@ -1136,7 +1246,7 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
     return error("demo", "Connect CLIProxyAPI from an installed server, not the public demo.", 409);
   }
   if (path === "/api/cliproxy/login" || path === "/api/cliproxy/callback") return error("demo", "Sign in from an installed server, not the public demo.", 409);
-  if (path === "/api/push" || path.startsWith("/api/push/")) return error("push_unavailable", "the demo sends no alerts", 404);
+  if (path === "/api/push" || path.startsWith("/api/push/")) return pushRoute(path, method, init);
   if (path === "/api/machines/settings") return json({ auto_update_bridges: true });
   if (path.startsWith("/api/machines/")) return error("demo", "remote PCs need a real machine", 404);
 
@@ -1317,6 +1427,8 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
     if (request.jump !== false && result.match) redrawHistory(target);
     return json(result);
   }
+  // the demo's sessions publish no pages: the artifacts chip stays away
+  if (path === "/api/pane/artifacts") return json({ artifacts: [] });
   if (path === "/api/pane/omo-tasks") return json({ tasks: keyOfPane.get(paneId) === "flaky" ? BACKGROUND_TASKS : [], runs: [], server_time: new Date().toISOString() } satisfies OmoActivity);
   if (path === "/api/pane/background-agent") {
     if (method !== "GET") return error("method_not_allowed", "use GET", 400);
@@ -1710,9 +1822,9 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
     const agent = launch?.kind ?? null;
     const firstFault = firstMessageFault(body["first_message"], agent);
     if (firstFault !== null) return error("invalid_first_message", firstFault, 400);
-    // a session resumed from the history dialog (`codex resume <id>`, `claude --resume <id>`: the id
-    // last) is the one the new pane shows, as herdr reports a pane's session
-    const resumed = agent !== null && Array.isArray(launch?.args) && launch.args.length === 2 && typeof launch.args[1] === "string" ? launch.args[1] : null;
+    // a session resumed from the history dialog is the one the new pane shows, as herdr reports a pane's
+    // session; any other two arguments (`--effort high`, `--settings {"ultracode":true}`) name none
+    const resumed = resumedSession(agent, launch?.args);
     const id = workspace.workspace_id;
     const siblings = snap.panes.filter((p) => p.workspace_id === id);
     const cwd = String(body["cwd"] ?? siblings[0]?.cwd ?? "/home/demo");
@@ -1788,6 +1900,67 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
   }
   if (path.startsWith("/api/fs/")) return error("not_found", "the demo has no files to open", 404);
   return error("demo", `${method} ${path} is not part of the demo`, 404);
+}
+
+// ---- web push -----------------------------------------------------------------------------------
+
+/**
+ * The workstation's push state, as a server keeps it (server/push.ts): the subscriptions this
+ * browser registered and how the last push to each went. The public demo has no PushManager, so
+ * the app never asks; a browser script that lends one (scripts/push-health-demo-regression.ts)
+ * hands over the fixtures of site/demo/fixtures.ts and sees the notice and its repair. No push
+ * ever goes out: a test push is answered as delivered and recorded as the last success.
+ */
+interface DemoSubscription { endpoint: string; keys: { p256dh: string; auth: string } }
+const pushRegistry = new Map<string, { keys: DemoSubscription["keys"]; status: PushSubscriptionStatus }>();
+const FIXTURE_STATUS = new Map([DEMO_PUSH.retired, DEMO_PUSH.refused].map((fixture) => [fixture.subscription.endpoint, fixture]));
+const sameKeys = (a: DemoSubscription["keys"], b: DemoSubscription["keys"]): boolean => a.p256dh === b.p256dh && a.auth === b.auth;
+
+function parseDemoSubscription(value: unknown): DemoSubscription | null {
+  const { endpoint, keys } = (value ?? {}) as { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+  if (typeof endpoint !== "string" || !endpoint.startsWith("https://") || typeof keys?.p256dh !== "string" || typeof keys.auth !== "string") return null;
+  return { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } };
+}
+
+async function pushRoute(path: string, method: string, init: RequestInit | undefined): Promise<Response> {
+  if (path === "/api/push") return method === "GET" ? json({ public_key: DEMO_PUSH.publicKey }) : error("method_not_allowed", `${method} is not supported on ${path}`, 400);
+  if (path !== "/api/push/subscribe" && path !== "/api/push/test" && path !== "/api/push/status") return error("demo", `${method} ${path} is not part of the demo`, 404);
+  const body = (typeof init?.body === "string" ? JSON.parse(init.body) : {}) as { subscription?: unknown; endpoint?: unknown };
+  const gone = () => error("subscription_gone", "the push service retired this subscription; subscribe again", 410);
+  const notFound = () => error("subscription_not_found", "this device is not subscribed", 404);
+  if (path === "/api/push/subscribe" && method === "POST") {
+    const subscription = parseDemoSubscription(body.subscription);
+    if (!subscription) return error("invalid_subscription", "subscription needs an https endpoint and p256dh/auth keys", 400);
+    if (subscription.endpoint === DEMO_PUSH.retired.subscription.endpoint) return gone();
+    const fixture = FIXTURE_STATUS.get(subscription.endpoint);
+    const known = pushRegistry.get(subscription.endpoint);
+    pushRegistry.set(subscription.endpoint, { keys: subscription.keys, status: known && sameKeys(known.keys, subscription.keys) ? known.status
+      : fixture && sameKeys(fixture.subscription.keys, subscription.keys) ? fixture.status : { registered: true, last_success_at: null, last_failure_at: null, last_failure: null } });
+    return new Response(null, { status: 204 });
+  }
+  if (path === "/api/push/subscribe" && method === "DELETE") {
+    if (typeof body.endpoint === "string") pushRegistry.delete(body.endpoint);
+    return new Response(null, { status: 204 });
+  }
+  if (path === "/api/push/test" && method === "POST") {
+    if (typeof body.endpoint !== "string") return error("missing_endpoint", "endpoint is required", 400);
+    if (body.endpoint === DEMO_PUSH.retired.subscription.endpoint) return gone();
+    const known = pushRegistry.get(body.endpoint);
+    if (!known) return notFound();
+    known.status = { ...known.status, registered: true, last_success_at: new Date().toISOString() };
+    return new Response(null, { status: 204 });
+  }
+  if (path === "/api/push/status" && method === "POST") {
+    const subscription = parseDemoSubscription(body.subscription);
+    if (!subscription) return error("invalid_subscription", "subscription needs an https endpoint and p256dh/auth keys", 400);
+    const known = pushRegistry.get(subscription.endpoint);
+    if (known) return sameKeys(known.keys, subscription.keys) ? json(known.status, 200, { "cache-control": "no-store" }) : notFound();
+    // the retired fixture answers like a server's tombstone: its owner, holding its keys, and nobody else
+    const fixture = FIXTURE_STATUS.get(subscription.endpoint);
+    if (fixture && !fixture.status.registered && sameKeys(fixture.subscription.keys, subscription.keys)) return json(fixture.status, 200, { "cache-control": "no-store" });
+    return notFound();
+  }
+  return error("method_not_allowed", `${method} is not supported on ${path}`, 400);
 }
 
 const realFetch = window.fetch.bind(window);
@@ -1909,12 +2082,13 @@ class DemoSocket extends EventTarget {
     // opens on its own tick, like a real socket; `later` guards on OPEN, so not through it
     const opening = setTimeout(() => {
       this.timers.delete(opening);
-      if (this.readyState !== 0) return;
+      // a lost connection stays lost: every new socket keeps trying and never opens
+      if (this.readyState !== 0 || connectionLost) return;
       this.readyState = 1;
       const open = new Event("open");
       this.onopen?.(open);
       this.dispatchEvent(open);
-      this.push({ type: "snapshot", snapshot: readSnapshot(local)!, features: ["submit", "pending-input", "pending-hold", "secret-input", "input-ready", "conversation-watch", "ping", "terminal-insert"], connection: this.connection });
+      this.push({ type: "snapshot", snapshot: readSnapshot(local)!, features: ["submit", "pending-input", "pending-hold", "secret-input", "input-ready", "conversation-watch", "ping", "terminal-insert", "agent-only"], connection: this.connection });
     }, 20);
     this.timers.add(opening);
   }
@@ -1947,10 +2121,10 @@ class DemoSocket extends EventTarget {
 
   send(raw: string): void {
     if (this.readyState !== 1) return;
-    let message: { type: string; pane_id?: string; cols?: number; rows?: number; text?: string; payload?: string; keys?: string[]; id?: number; mode?: string; typed?: unknown; delivery?: unknown; clear_draft?: unknown; send_anyway?: unknown; resend_id?: unknown; resend_generation?: unknown; pending_id?: string; action?: unknown; enabled?: boolean; stop?: unknown; keep_size?: boolean };
+    let message: { type: string; pane_id?: string; cols?: number; rows?: number; text?: string; payload?: string; keys?: string[]; id?: number; mode?: string; typed?: unknown; delivery?: unknown; clear_draft?: unknown; send_anyway?: unknown; resend_id?: unknown; resend_generation?: unknown; agent_only?: unknown; pending_id?: string; action?: unknown; enabled?: boolean; stop?: unknown; keep_size?: boolean };
     try { message = JSON.parse(raw); } catch { return; }
     if ((message.type === "submit" || message.type === "pending-action") && Number.isSafeInteger(message.id)) {
-      const signature = JSON.stringify({ type: message.type, pane_id: message.pane_id, text: message.text, payload: message.payload, typed: message.typed, delivery: message.delivery, clear_draft: message.clear_draft, send_anyway: message.send_anyway, resend_id: message.resend_id, resend_generation: message.resend_generation, pending_id: message.pending_id, action: message.action });
+      const signature = JSON.stringify({ type: message.type, pane_id: message.pane_id, text: message.text, payload: message.payload, typed: message.typed, delivery: message.delivery, clear_draft: message.clear_draft, send_anyway: message.send_anyway, resend_id: message.resend_id, resend_generation: message.resend_generation, agent_only: message.agent_only, pending_id: message.pending_id, action: message.action });
       const previous = this.requests.get(message.id!);
       if (previous) {
         if (previous.signature !== signature) {
@@ -2096,7 +2270,10 @@ class DemoSocket extends EventTarget {
             || queued || (message.typed !== undefined && message.typed !== false))) code = "invalid_delivery";
           else if (message.send_anyway !== undefined && (message.send_anyway !== true || queued || message.clear_draft !== undefined
             || (message.typed !== undefined && message.typed !== false))) code = "invalid_delivery";
+          else if (message.agent_only !== undefined && (message.agent_only !== true || message.typed === true)) code = "invalid_delivery";
           else if (this.mode === "observe") code = "read_only";
+          // a message for an agent alone (#511), as the bridge refuses it: nothing typed where no agent is
+          else if (message.agent_only === true && !paneOf(message.pane_id)?.agent) code = "agent_not_ready";
           // the demo agent never refuses over its input box, so there is nothing to clear or send over
           else if (message.clear_draft !== undefined || message.send_anyway !== undefined) code = "unsupported";
           else if (message.resend_id !== undefined && (typeof message.resend_id !== "string" || !message.resend_id || message.resend_id.length > 128 || queued || message.typed === true)) code = "invalid_delivery";
@@ -2108,13 +2285,13 @@ class DemoSocket extends EventTarget {
           if (code) {
             const framingRefused = badFraming && code === "invalid_submit_text";
             const reply: Extract<ServerMessage, { type: "submit-result" }> = { type: "submit-result", id: message.id, pane_id: message.pane_id, ok: false, code,
-              message: framingRefused ? `A message must be at most ${framingLimit} characters, without terminal control characters or paste markers, and sent as the composer shapes it; nothing was typed` : "The demo agent cannot take this submission." };
+              message: framingRefused ? `A message must be at most ${framingLimit} characters, without terminal control characters or paste markers, and sent as the composer shapes it; nothing was typed` : code === "agent_not_ready" ? NO_AGENT_MESSAGE : "The demo agent cannot take this submission." };
             if (resendKey !== null && this.mode !== "observe" && code !== "pending_limit" && !framingRefused && !previous) heldCopyResends.set(resendKey, { text, reply, at: Date.now() });
             this.completeRequest(reply);
             break;
           }
           if (queued && (message.delivery === "hold" || paneOf(message.pane_id)?.agent_status === "working")) {
-            const pending: PendingMessage = { id: `demo-pending-${nextPending++}`, request_id: message.id, text, state: message.delivery === "hold" ? "held" : "queued", created_at: now() };
+            const pending: PendingMessage = { id: `demo-pending-${nextPending++}`, request_id: message.id, text, state: message.delivery === "hold" ? "held" : "queued", created_at: now(), ...(message.agent_only === true ? { agent_only: true as const } : {}) };
             this.pending.set(message.pane_id, [...(this.pending.get(message.pane_id) ?? []), pending]);
             const reply: ServerMessage = { type: "submit-result", id: message.id, pane_id: message.pane_id, ok: true, pending: structuredClone(pending) };
             this.rememberRequest(reply);

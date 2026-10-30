@@ -45,8 +45,8 @@ workspaces (a folded workspace is one stop; the classic sidebar: its previous / 
 previous / next tab of the open workspace (both wrap around; a terminal with no other tab keeps ⌘← / ⌘→ for its
 line), ⌘T asks what a new tab in that workspace runs, and ⌘W closes the open
 tab as its × does (a confirm first when an agent in it is at work or it is the workspace's last tab).
-Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field with text the arrows stay the
-field's. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
+Off a Mac they are Ctrl+Alt+arrows, Ctrl+Alt+T and Ctrl+Alt+W. In a text field the arrows stay the field's while
+its caret can still move that way, as upstream's own step keys do. A browser tab keeps ⌘T and ⌘W for itself; the installed app gets them.
 
 **Tab menu** (the classic sidebar's strip). The tab's menu leaves out New tab with agent…, since the strip's + asks what a new tab runs, and,
 on a tab of one pane, the pane's Close pane, since that pane closes with the tab (Close tab confirms the same
@@ -146,11 +146,11 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `server/codex-forks.test.ts` | The Codex chat beside a fork (`matchBesideForks`, at the end of `server/codex.ts`). |
 | `server/finishes.ts` (+ test) | The finish epoch and counts kept in `finishes.json`; `server/core/status.ts` gives it the file. |
 | `src/lib/explicitPick.ts` (+ test) | A row picked by hand reads the finish it shows; the tree sidebar notes the press, `src/lib/sidebarActivity.tsx` reads it. |
-| `server/update-state-symlink.test.ts` | Updates under a home reached through a symlink (`launcherSpelling` in `server/update-state.ts`). |
+| `server/update-state-symlink.test.ts` | Updates under a home reached through a symlink; upstream fixed it the same way in 0.4.20 (#2029), and this test still guards it. |
 | `src/lib/localExtensions.ts`, `src/lib/localExtensionsStub.ts`, `server/localExtensions.ts` (+ test) | The local extension slot; `PaneTerminal.tsx` takes its phone keys and terminal setup, `server/index.ts` its routes. |
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
-`server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, 3 lines; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `server/update-state.ts` (the supervisor's state dir under a symlinked home), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt, `data-pane-shown`), `src/lib/sidebarActivity.tsx` (a row picked by hand, 4 lines),
+`server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, with upstream's off mark written on a fresh install; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt, `data-pane-shown`), `src/lib/sidebarActivity.tsx` (a row picked by hand, 4 lines),
 `src/components/Composer.tsx` (the chip, and the model label as a button),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
@@ -176,11 +176,9 @@ resolution next time. If a check fails it undoes the merge (exit 3).
 
 ## Releases and updates
 
-**Updates under a symlinked home.** Upstream's supervisor finds its state dir from its own release's path,
-which Bun gives as the real path, while the plugin's launcher names it as `$HOME` spells it and resumes only a
-release record under that name. Where `$HOME` is a symlink (`/home/me` → `/data00/home/me`) every install was
-then dropped at the handover and the source checkout served again. The supervisor now keeps the launcher's
-name for the same dir.
+**Updates under a symlinked home.** Where `$HOME` is a symlink (`/home/me` → `/data00/home/me`) the supervisor
+must name its state dir as the launcher does, or every install is dropped at the handover. Upstream does so
+since 0.4.20 (#2029); `server/update-state-symlink.test.ts` keeps it checked here.
 
 The in-app updater fetches `v*` tags from the install's `origin` and offers the newest one when it descends
 from the running commit. Hence:

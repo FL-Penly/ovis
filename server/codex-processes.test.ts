@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { Database } from "bun:sqlite";
+import * as fs from "node:fs";
 import { appendFileSync, closeSync, mkdirSync, mkdtempSync, openSync, rmSync, statSync, symlinkSync, truncateSync, utimesSync, writeFileSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -89,6 +90,21 @@ const resolve = () => codexTranscriptPath(root, root, home, [{
   agent: "codex", agent_status: "working", cwd: root, focused: false, revision: 0,
 }]);
 
+/** A fixture's first line, whole: a busy pipe can hand "READY" and its newline over in two reads. */
+async function firstLine(stdout: ReadableStream<Uint8Array>): Promise<string> {
+  const reader = stdout.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  try {
+    while (!text.includes("\n")) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += decoder.decode(value, { stream: true });
+    }
+  } finally { reader.releaseLock(); }
+  return text;
+}
+
 /** A ready, owned process with Codex's argv[0], no rollout descriptor and no timer. */
 async function runningCodex(resume = false): Promise<ReturnType<typeof Bun.spawn>> {
   const node = Bun.which("node");
@@ -98,10 +114,7 @@ async function runningCodex(resume = false): Promise<ReturnType<typeof Bun.spawn
     "fixture", join(root, "codex"), node, ...(resume ? ["resume", thread] : []),
   ], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
   children.push(child);
-  const reader = child.stdout.getReader();
-  const ready = await reader.read();
-  reader.releaseLock();
-  expect(new TextDecoder().decode(ready.value)).toBe("READY\n");
+  expect(await firstLine(child.stdout)).toBe("READY\n");
   return child;
 }
 
@@ -113,6 +126,19 @@ it.skipIf(process.platform !== "linux")("selects the resumed rollout when Linux 
 
 it("selects the resumed rollout for the observed native executable alias", async () => {
   foreground = [{ pid: 2147483647, argv: ["/home/user/.local/bin/codex.opencodex-real", "resume", thread] }];
+  expect(await resolve()).toBe(path);
+});
+
+it("binds a conversation with a spaced local file link and keeps it when its screen no longer tells", async () => {
+  foreground = [{ pid: 2147483647, argv: ["/usr/bin/codex"] }];
+  const linked = `${answer} [Daily report](</home/user/My Project/Daily notes/report.md>)`;
+  writeFileSync(path, [
+    { type: "session_meta", payload: { id: thread, cwd: root } },
+    { type: "event_msg", payload: { type: "agent_message", message: linked } },
+  ].map((entry) => JSON.stringify(entry)).join("\n"));
+  screen = `• ${answer} Daily report (Daily notes/report.md)`;
+  expect(await resolve()).toBe(path);
+  screen = "";
   expect(await resolve()).toBe(path);
 });
 
@@ -417,10 +443,7 @@ async function loadedByExec(id: string): Promise<ReturnType<typeof Bun.spawn>> {
   // only cat, once Python has become it, echoes what it reads
   child.stdin.write("READY\n");
   await child.stdin.flush();
-  const reader = child.stdout.getReader();
-  const ready = await reader.read();
-  reader.releaseLock();
-  expect(new TextDecoder().decode(ready.value)).toBe("READY\n");
+  expect(await firstLine(child.stdout)).toBe("READY\n");
   return child;
 }
 
@@ -437,10 +460,7 @@ async function holding(ids: string[], kind: "readable" | "unreadable"): Promise<
     "sys.stdin.read()",
   ].join("\n"), kind, ...ids.map((id) => join(folder, `${id}.lock`))], { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
   children.push(child);
-  const reader = child.stdout.getReader();
-  const ready = await reader.read();
-  reader.releaseLock();
-  expect(new TextDecoder().decode(ready.value)).toBe("READY\n");
+  expect(await firstLine(child.stdout)).toBe("READY\n");
   return child;
 }
 
@@ -1031,6 +1051,57 @@ describe("a thread of another folder Codex has loaded, as a resume through the p
     await loaded(other, ...many);
     expect(await resolve()).toBeNull();
   });
+
+  it.skipIf(process.platform !== "linux")("counts a loaded thread one read of the kernel's lock table left out", async () => {
+    // the kernel hands /proc/locks out a page at a time, and a lock another process takes or drops
+    // between two pages moves the lines after it: a read may leave a held lock out (#2046, #1965)
+    const rollout = otherFolderThread();
+    foreground = picker;
+    screen = `• ${otherAnswer}`;
+    // a conversation that gave the same answer: while it counts as loaded, none is offered
+    const peer = "01a16b22-7e1f-7072-8897-dddddddd0b00";
+    elsewhereThread(peer, [otherAnswer]);
+    const holder = await loaded(other, peer);
+    // the table as the kernel has it for these two locks, built here: a real read may tear too
+    const line = (index: number, id: string) => {
+      const ino = statSync(join(home, "thread-writer-locks", `${id}.lock`), { bigint: true }).ino.toString();
+      return `${index}: FLOCK  ADVISORY  WRITE ${holder.pid} 00:00:${ino} 0 EOF`;
+    };
+    const whole = `${line(1, other)}\n${line(2, peer)}\n`;
+    const withoutPeer = `${line(1, other)}\n`;
+    const readFile = fs.readFileSync;
+    /** /proc/locks without the peer's lock line in its first `torn` reads, and the reads made */
+    const tearing = async (torn: number): Promise<{ found: string | null; reads: number }> => {
+      let reads = 0;
+      const spy = spyOn(fs, "readFileSync").mockImplementation(((file: string, options: "utf8") => {
+        if (file !== "/proc/locks") return readFile(file, options);
+        reads += 1;
+        return reads > torn ? whole : withoutPeer;
+      }) as typeof fs.readFileSync);
+      try {
+        return { found: await resolve(), reads };
+      } finally { spy.mockRestore(); }
+    };
+    expect(await tearing(0)).toEqual({ found: null, reads: 1 });
+    // left out of every read, the peer is not loaded, and the other is offered alone
+    expect(await tearing(Infinity)).toEqual({ found: rollout, reads: 3 });
+    // left out of one read, or two, it is found in the next
+    expect(await tearing(1)).toEqual({ found: null, reads: 2 });
+    expect(await tearing(2)).toEqual({ found: null, reads: 3 });
+    // the holder opened the peer's lock between two reads: its open files are listed again
+    const readDirectory = fs.readdirSync;
+    let listings = 0;
+    const late = spyOn(fs, "readdirSync").mockImplementation(((directory: string, ...rest: unknown[]) => {
+      const names = (readDirectory as (path: string, ...more: unknown[]) => string[])(directory, ...rest);
+      if (directory !== `/proc/${holder.pid}/fd` || ++listings > 1) return names;
+      return names.filter((descriptor) => {
+        try { return !fs.readlinkSync(`${directory}/${descriptor}`).endsWith(`${peer}.lock`); } catch { return true; }
+      });
+    }) as typeof fs.readdirSync);
+    try {
+      expect(await tearing(1)).toEqual({ found: null, reads: 2 });
+    } finally { late.mockRestore(); }
+  }, 20_000);
 });
 
 it("does not guess a session when argv and proc data are unavailable", async () => {

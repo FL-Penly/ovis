@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmdirSync, statSync, symlinkSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
 type SupervisorRelease = { readonly root: string; readonly port: number; readonly directory: string };
 
@@ -15,21 +15,33 @@ export function defaultStateDir(env: Record<string, string | undefined> = proces
   if (supervisor) {
     const directory = resolve(supervisor.directory);
     const stateDir = resolve(directory, "../../..");
-    if (basename(directory).startsWith("release-") && dirname(directory) === updateStateDir(supervisor.root, supervisor.port, stateDir)) return launcherSpelling(env, stateDir); // downstream: DOWNSTREAM.md
+    if (basename(directory).startsWith("release-") && dirname(directory) === updateStateDir(supervisor.root, supervisor.port, stateDir)) {
+      // Bun runs a script from its real path, so a release reached through a symlinked $HOME or
+      // ~/.config is found under the real one here, where the launcher and the source checkout's
+      // supervisor name it through the link. The launcher's name is kept: a launcher from before
+      // this fix takes only a release recorded under its own (#2029).
+      const { legacy, next } = stateDirNames(env);
+      return [next, legacy].find((dir) => sameDir(dir, stateDir)) ?? stateDir;
+    }
   }
   const { legacy, next } = stateDirNames(env);
   return currentStateDir(legacy, next);
 }
 
-// downstream: Bun names its own files by their real path (import.meta.dir), while the launcher names
-// the state dir as $HOME spells it and resumes only a release record under that spelling
-// (current.json). Under a home reached through a symlink the supervisor keeps the launcher's name.
-function launcherSpelling(env: Record<string, string | undefined>, stateDir: string): string {
-  const same = (name: string): boolean => {
-    try { return realpathSync(name) === realpathSync(stateDir); } catch { return false; }
-  };
-  const { legacy, next } = stateDirNames(env);
-  return [currentStateDir(legacy, next), legacy, next].find(same) ?? stateDir;
+/**
+ * The release `directory` names when it is one of the update state dir `stateDir`'s
+ * (`<stateDir>/release-*`), named under `stateDir`; null when it is not. The two are compared by real
+ * path, since one may be spelled through a symlink and the other not (#2029). Only an absolute path
+ * with no `.` or `..` segment qualifies: the real path of `<stateDir>/link/../release-x` drops the
+ * `..` first, where a process started there follows the link first and runs somewhere else. The
+ * name returned is the one to check and run, so both reach the directory that was compared.
+ */
+export function releaseIn(stateDir: string, directory: string): string | null {
+  if (!isAbsolute(directory) || resolve(directory) !== directory) return null;
+  try {
+    const release = realpathSync(directory);
+    return basename(release).startsWith("release-") && dirname(release) === realpathSync(stateDir) ? join(stateDir, basename(release)) : null;
+  } catch { return null; }
 }
 
 /** The default state dir under its name from before the rename, and under its new one. */
