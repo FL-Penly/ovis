@@ -314,6 +314,21 @@ const BASE: Record<string, string> = {
   "Terminal line": "ターミナルの入力行",
   "Held message": "保留中のメッセージ",
   "Held input": "保持した入力",
+  "Other accounts": "その他のアカウント",
+  "Plan limits": "プランの上限",
+  "Auto": "自動",
+  "Hub request failed": "ハブのリクエストに失敗しました",
+  "On this PC": "このPC",
+  "Hub": "ハブ",
+  "Add account": "アカウントを追加",
+  "Check the hub connection": "ハブの接続を確認してください",
+  "Meters show": "メーターの表示",
+  "Limit shown": "表示する上限",
+  "Show plan limits": "プランの上限を表示",
+  "Session": "セッション",
+  "Weekly": "週次",
+  "Open terminal": "ターミナルを開く",
+  "Sign in to {agent}": "{agent} にサインイン",
 };
 
 /** The parts JA is made of; src/lib/i18n.test.ts fails when a key is in two parts, since a spread keeps only the last. */

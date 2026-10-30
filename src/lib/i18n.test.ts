@@ -127,11 +127,11 @@ const PART_FILES: Record<string, string[]> = {
   workspace: ["components/NewSessionDialog.tsx", "components/WorktreeDialog.tsx", "components/DirectoryBrowser.tsx", "components/RecentFolderChips.tsx", "components/SessionHistory.tsx", "lib/sessionHistory.ts", "lib/useAgentSkills.ts"],
   files: ["components/FileViewer.tsx", "components/FilesDialog.tsx", "components/FileReader.tsx", "components/TextFileView.tsx", "components/FilePathLink.tsx", "components/FilePanelResizer.tsx", "components/HighlightedCode.tsx", "components/RepoDiffViewer.tsx", "components/RepoChanges.tsx", "components/RepoDiff.tsx", "lib/repoDiff.ts", "components/WebPanel.tsx"],
   devices: ["components/DevicesPanel.tsx", "components/PhonePanel.tsx", "components/PortalPanel.tsx", "components/PushTestControls.tsx", "components/AccessGate.tsx", "components/LanExposureNotice.tsx", "components/DevicePairedNotice.tsx", "lib/install.ts"],
-  usage: ["components/UsageSettings.tsx", "components/UsageAccountDialog.tsx", "components/UsageLocalLogin.tsx", "components/UsageHubConnect.tsx", "components/CLIProxyLogin.tsx", "components/UsageMeters.tsx", "lib/usage.ts"],
+  usage: ["components/UsageAccountDialog.tsx", "components/UsageSignInDialog.tsx", "components/UsageLocalLogin.tsx", "components/UsageHubConnect.tsx", "components/CLIProxyLogin.tsx", "components/UsageMeters.tsx", "lib/usage.ts"],
   updates: ["components/UpdateControls.tsx", "lib/updateProgress.ts"],
   palette: ["components/CommandPalette.tsx"],
   downstream: ["components/ForkButton.tsx", "components/ModeChip.tsx", "components/TreeSidebar.tsx", "components/StickyPrompt.tsx", "components/GitPanel.tsx", "components/QuickTabPicker.tsx", "components/PhoneKeys.tsx", "components/LineExtras.tsx", "components/AttachmentTokens.tsx"], // downstream
-  setup: ["components/AgentSetupCard.tsx", "components/AddAgentPanel.tsx", "components/AgentCatalogSettings.tsx", "components/AgentTile.tsx"],
+  setup: ["components/AgentSetupCard.tsx", "components/AddAgentPanel.tsx", "components/AgentTile.tsx", "components/AgentsSettings.tsx"],
   guide: ["components/SetupGuide.tsx"],
 };
 
