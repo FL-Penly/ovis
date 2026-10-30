@@ -11,6 +11,8 @@ export interface GalleryImage {
   name: string;
   /** the name a download gets */
   file: string;
+  /** downstream: the attachment mark the message named it by (lib/attachmentTokens.ts), drawn on its thumbnail */
+  label?: string;
 }
 
 /** The gallery index `index` steps to, wrapping at both ends (-1 is the last picture). */

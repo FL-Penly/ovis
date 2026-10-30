@@ -145,4 +145,8 @@ export const DOWNSTREAM_ZH: Record<string, string> = {
   "Split it below": "向下分屏",
   "Goal not met yet: {objective}": "Goal 未完成：{objective}",
   "Goal paused ({reason}): {objective}": "Goal 已暂停（{reason}）：{objective}",
+  "Image {n}": "图片{n}",
+  "File {n}": "文件{n}",
+  "No room in the message to mark these files. Shorten it, then attach them again.": "消息里放不下这些文件的标记。请先删短一些，再重新添加。",
+  "Too long with the attached files' paths: shorten the message or remove a file.": "加上附件路径后消息太长：请删短消息或移除一个文件。",
 };

@@ -91,6 +91,18 @@ row's other button opens it in upstream's diff viewer. Git runs as argv with no 
 when it refuses. Docked last in the row from 980px, over the pane below that; on a phone (below 769px) it is
 in the header's ⋯ menu, under Browse files.
 
+**Attachments marked where they were pasted.** A file pasted, dropped or picked in the message box puts a mark
+at the caret at once (`[Image 1]`, `[File 1]`, in the UI's language), drawn as a pill over the text, and its tile
+says the same name; the upload runs behind it. Upstream put each file's `@path` at the start of the message as
+its upload finished, so a message with several pictures lost which words were about which. Sent, each mark is
+followed by its path where it stands (`[Image 1] @/repo/.ovis/paste-….png`), so the agent reads every file beside
+its words. A mark is one piece: Backspace or a selection that cuts it takes it whole with its tile, a caret never
+lands inside it, and removing a tile takes its mark. Marks are kept with the draft (`ovis-downstream:composer-tokens:`),
+so another pane and back or a reload brings them and their tiles back; a mark whose upload the box left behind
+goes, and a failed upload holds Send until it is retried or removed. In the chat, a sent mark is a pill that opens
+its file and the message's thumbnails carry the marks; the faded bubble of a send on its way shows them without
+their paths. The phone's terminal input line still inserts paths as upstream does.
+
 **Images in a read-only project.** A pasted or attached image goes in `<pane folder>/.ovis/`; when `.ovis` cannot
 be made there (a read-only checkout), it goes in the temp dir's `ovis/.ovis/`, as for a pane with no folder,
 instead of failing (`server/paste.ts`, one hunk). A `.ovis` already there and a folder named in `OVIS_PASTE_DIR`
@@ -134,7 +146,8 @@ of it. The client part is built in: a change to it shows after the next build (a
 | `src/components/TreeSidebar.tsx` (+ css, test) | The herdr-web sidebar, its Waiting on you switch and the layout button. |
 | `src/components/StickyPrompt.tsx` (+ css, test) | The sticky prompt over the chat. |
 | `src/components/PhoneKeys.tsx` (+ css), `src/components/LineExtras.tsx` (+ css), `src/lib/phoneKeys.ts` (+ test), `src/lib/useDoubleTapKeyboard.ts` | The phone keys, the line's recent lines and phrases, and the double tap for the keyboard; `Key` and `Chevron` are exported from upstream's `KeyBar.tsx` for them. |
-| `src/lib/upstreamTests.ts` | `drivenByTests`: under upstream's browser scripts (`navigator.webdriver`) the classic sidebar, the strip's + and upstream's key bar stay upstream's. |
+| `src/lib/upstreamTests.ts` | `drivenByTests`: under upstream's browser scripts (`navigator.webdriver`) the classic sidebar, the strip's + and upstream's key bar stay upstream's, and an attachment's path goes to the start of the message unless `ovis-downstream:attachment-marks` is `1`. |
+| `src/lib/attachmentTokens.ts` (+ test), `src/components/AttachmentTokens.tsx`, `src/components/AttachmentTokens.css` | Attachment marks: placing, repairing and expanding them, their store, the pill layer under the message box, and the sent pills. `Composer.tsx` places, uploads, removes and sends them; `ChatView.tsx` and `SentWaiting.tsx` draw sent ones; `src/lib/imageViewer.ts` gives a thumbnail its label. |
 | `src/components/QuickTabPicker.tsx` (+ css) | The new tab list; `openTerminalTab`'s `agent` (`src/lib/actions.ts`, `App.tsx`) runs the pick. |
 | `server/split-launch.ts`, `src/lib/splitLaunch.ts` | `POST /api/pane/split-with {pane_id, direction, agent?, env?}` and `openSplit` (`src/lib/actions.ts`, `App.tsx`); `PaneCanvas.tsx` and the sidebar open the list for a split. |
 | `shared/long-run.ts`, `server/long-run.ts` (+ test), `src/lib/longRun.ts` | The long run's window and the one variable a request may set; `GET /api/pane/long-run` and the sidebar's mark. |
@@ -151,7 +164,7 @@ of it. The client part is built in: a change to it shows after the next build (a
 
 Lines in upstream's own files are marked `downstream`, so `git grep -n downstream` lists every hook:
 `server/pane-routes.ts` (8 lines: fork, git, long run and goals), `server/workspace-routes.ts` and `shared/workspace-lifecycle.ts` (a new tab's `env`, the split-with route), `server/herdr/client.ts` (`paneSplitWithEnv`), `src/lib/api.ts` (`sendJson` exported), `src/components/PaneCanvas.tsx` (a split asks), `server/index.ts` and `server/telemetry.ts` (usage counts off by default, with upstream's off mark written on a fresh install; the local slot's routes, 3 lines), `server/core/status.ts` (the finish state's file, 1 line), `vite.config.ts` and `tsconfig.json` (the `ovis-local/client` alias), `src/lib/useDoubleTapKeyboard.ts` (its window as a parameter), `scripts/conventions.test.ts` (`/api/local` in DEMO_404), `server/codex.ts` (2 lines, and `matchBesideForks` at its end), `server/paste.ts` (a read-only project's images), `src/components/ChatView.tsx` (a few one-line hunks: the fork button, the sticky prompt, `data-pane-shown`), `src/lib/sidebarActivity.tsx` (a row picked by hand, 4 lines),
-`src/components/Composer.tsx` (the chip, and the model label as a button),
+`src/components/Composer.tsx` (the chip, the model label as a button, and the attachment marks), `src/components/SentWaiting.tsx` and `src/lib/imageViewer.ts` (attachment marks, 1 line each),
 `src/App.tsx` (the workspace and tab keys, the Git button and panel), `src/components/TabStrip.tsx` (⌘W, the tab menu), `src/components/MachineSidebar.tsx` (the sidebar in place of the lists, a lone PC's header, and the layout button),
 `src/lib/i18n.{zh,ja,ko}.ts` and `src/lib/i18n.test.ts` (the `downstream` part), and `scripts/conventions.test.ts`
 (the demo has no fork route). Not marked: the fork note at the top of `README.md` and `README.zh-CN.md`, and this fork's copyright line in

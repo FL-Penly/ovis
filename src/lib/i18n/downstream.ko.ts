@@ -145,4 +145,8 @@ export const DOWNSTREAM_KO: Record<string, string> = {
   "Split it below": "아래로 분할",
   "Goal not met yet: {objective}": "Goal 미완료: {objective}",
   "Goal paused ({reason}): {objective}": "Goal 일시 중지({reason}): {objective}",
+  "Image {n}": "이미지 {n}",
+  "File {n}": "파일 {n}",
+  "No room in the message to mark these files. Shorten it, then attach them again.": "메시지에 이 파일들의 표시를 넣을 자리가 없습니다. 메시지를 줄인 뒤 다시 첨부하세요.",
+  "Too long with the attached files' paths: shorten the message or remove a file.": "첨부 파일 경로를 더하면 너무 깁니다. 메시지를 줄이거나 파일을 빼세요.",
 };

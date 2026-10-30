@@ -145,4 +145,8 @@ export const DOWNSTREAM_JA: Record<string, string> = {
   "Split it below": "下に分割",
   "Goal not met yet: {objective}": "Goal 未達成：{objective}",
   "Goal paused ({reason}): {objective}": "Goal 一時停止（{reason}）：{objective}",
+  "Image {n}": "画像{n}",
+  "File {n}": "ファイル{n}",
+  "No room in the message to mark these files. Shorten it, then attach them again.": "メッセージにこれらのファイルの印を入れる余地がありません。短くしてから、もう一度添付してください。",
+  "Too long with the attached files' paths: shorten the message or remove a file.": "添付ファイルのパスを含めると長すぎます。メッセージを短くするか、ファイルを外してください。",
 };
